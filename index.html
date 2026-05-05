@@ -10,68 +10,71 @@
     <link rel="icon" href="/logo.jpg" type="image/jpeg">
 
     <style>
-        /* --- DESKTOP & PROFESSIONAL ENHANCEMENTS --- */
+        /* --- DESKTOP OPTIMIZATION --- */
 @media (min-width: 768px) {
-    /* Feed ko center me rakhne ke liye */
     .container {
-        max-width: 600px; /* Professional standard width */
-        margin-top: 30px;
+        max-width: 700px; /* Desktop par thoda wide layout */
+        margin: 30px auto;
     }
 
-    /* Header ko wider screen ke liye optimize kiya */
     header {
-        padding: 15px 15%;
+        padding: 15px 10%; /* Header side se thoda gap lega */
     }
 
-    /* Cards par hover effect */
-    .card {
-        transition: transform 0.2s ease, border 0.2s ease;
+    .logo {
+        font-size: 28px;
     }
+
+    .card {
+        padding: 25px;
+        border-radius: 24px;
+        transition: transform 0.2s ease;
+    }
+
+    /* Hover effect for desktop users */
     .card:hover {
         border-color: var(--primary);
-        transform: translateY(-2px);
     }
 
-    /* Desktop par FAB ko adjust kiya */
+    input, textarea {
+        font-size: 16px; /* Browser zoom prevent karne ke liye standard size */
+    }
+
     .fab {
-        bottom: 50px;
         right: 50px;
+        bottom: 50px;
         width: 70px;
         height: 70px;
-        transition: 0.3s;
-    }
-    .fab:hover {
-        transform: scale(1.1) rotate(90deg);
     }
 
-    /* Custom Scrollbar for modern look */
-    ::-webkit-scrollbar {
-        width: 8px;
-    }
-    ::-webkit-scrollbar-track {
-        background: var(--bg);
-    }
-    ::-webkit-scrollbar-thumb {
-        background: var(--card-bg);
-        border-radius: 10px;
-        border: 1px solid var(--primary);
+    .p-pic {
+        width: 50px;
+        height: 50px;
     }
 
-    /* Auth screen desktop view */
-    #auth-section {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        height: 80vh;
+    .stats-grid {
+        grid-template-columns: 1fr 1fr 1fr 1fr; /* Desktop par stats ek line mein */
+        gap: 20px;
+    }
+
+    #post-modal .container {
+        max-width: 600px;
     }
 }
 
-/* Glassmorphism effect for all cards */
-.card {
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+/* Scrollbar ko sundar banane ke liye (Optional) */
+::-webkit-scrollbar {
+    width: 8px;
 }
+::-webkit-scrollbar-track {
+    background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+    background: var(--card-bg);
+    border-radius: 10px;
+    border: 1px solid var(--primary);
+}
+
 
         :root { 
             --primary: #00e5ff; 
