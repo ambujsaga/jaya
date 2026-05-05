@@ -223,15 +223,72 @@
     </div>
 
     <script type="module">
-  // 1. Supabase Library Import (Firebase imports ki jagah)
   import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-  // 2. Supabase Configuration (Firebase conf ki jagah)
-  const supabaseUrl = 'https://mssnobemzcmchdzanoqp.supabase.co';
+  // --- CONFIGURATION ---
+  const supabaseUrl = 'https://mssnobmmzcmehdzanoqp.supabase.co';
   const supabaseKey = 'sb_publishable_-d9Ve_gqEJ7sukGxo6xM9w_XhT9vyza';
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   let me = null;
+
+  // --- AUTH LOGIC ---
+  supabase.auth.onAuthStateChange((event, session) => {
+    me = session?.user || null;
+    if (me) {
+      console.log("Logged in as:", me.email);
+    }
+  });
+
+  // Google Login Function
+  window.loginWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google'
+    });
+    if (error) alert("Login Error: " + error.message);
+  };
+
+  // --- DATABASE LOGIC (Post Table) ---
+  
+  // Post fetch karne ka function (Realtime updates ke saath)
+  window.loadPosts = async () => {
+    const { data, error } = await supabase
+      .from('Post')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) console.error("Fetch Error:", error.message);
+    else console.log("All Posts:", data);
+  };
+
+  // Naya Post add karne ka function
+  window.addPost = async (contentText) => {
+    if (!me) return alert("Pehle login karein!");
+    
+    const { error } = await supabase
+      .from('Post')
+      .insert([{ 
+        content: contentText, 
+        user_id: me.id 
+      }]);
+
+    if (error) alert("Insert Error: " + error.message);
+    else alert("Post successful!");
+  };
+
+  // --- UI LOGIC (Purana code) ---
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      const loader = document.getElementById('loader-screen');
+      if (loader) loader.style.display = 'none';
+    }, 3000);
+  });
+
+  window.toggleTheme = () => {
+    document.body.classList.toggle('light-mode');
+  };
+
+    
 
         // 3 SECONDS TIMER
         window.addEventListener('load', () => {
