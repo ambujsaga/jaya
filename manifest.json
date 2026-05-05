@@ -18,3 +18,9 @@
   "background_color": "#000000",
   "theme_color": "#000000"
 }
+{
+  "src": "logo.jpg",
+  "sizes": "192x192",
+  "type": "image/jpeg",
+  "purpose": "any maskable" 
+}
