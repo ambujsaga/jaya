@@ -10,6 +10,69 @@
     <link rel="icon" href="/logo.jpg" type="image/jpeg">
 
     <style>
+        /* --- DESKTOP & PROFESSIONAL ENHANCEMENTS --- */
+@media (min-width: 768px) {
+    /* Feed ko center me rakhne ke liye */
+    .container {
+        max-width: 600px; /* Professional standard width */
+        margin-top: 30px;
+    }
+
+    /* Header ko wider screen ke liye optimize kiya */
+    header {
+        padding: 15px 15%;
+    }
+
+    /* Cards par hover effect */
+    .card {
+        transition: transform 0.2s ease, border 0.2s ease;
+    }
+    .card:hover {
+        border-color: var(--primary);
+        transform: translateY(-2px);
+    }
+
+    /* Desktop par FAB ko adjust kiya */
+    .fab {
+        bottom: 50px;
+        right: 50px;
+        width: 70px;
+        height: 70px;
+        transition: 0.3s;
+    }
+    .fab:hover {
+        transform: scale(1.1) rotate(90deg);
+    }
+
+    /* Custom Scrollbar for modern look */
+    ::-webkit-scrollbar {
+        width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+        background: var(--bg);
+    }
+    ::-webkit-scrollbar-thumb {
+        background: var(--card-bg);
+        border-radius: 10px;
+        border: 1px solid var(--primary);
+    }
+
+    /* Auth screen desktop view */
+    #auth-section {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 80vh;
+    }
+}
+
+/* Glassmorphism effect for all cards */
+.card {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
         :root { 
             --primary: #00e5ff; 
             --bg: #030a1a; 
