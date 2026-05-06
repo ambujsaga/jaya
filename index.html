@@ -57,12 +57,17 @@
             transition: background 0.3s ease;
         }
 
-        /* FIXED LOADER Z-INDEX */
+        /* --- CRITICAL GLITCH FIX: LOADER Z-INDEX --- */
         #loader-screen {
-            position: fixed; inset: 0; background: #030a1a;
-            display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            z-index: 10000; /* Sabse upar */
-            transition: opacity 0.5s ease, visibility 0.5s ease;
+            position: fixed; 
+            inset: 0; 
+            background: #030a1a;
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            z-index: 10000; /* Loader must be above everything */
+            transition: opacity 0.6s ease, visibility 0.6s ease;
         }
 
         header { 
@@ -171,15 +176,16 @@
             box-shadow: var(--neon-shadow);
         }
 
-        /* POST MODAL FIX */
+        /* --- POST MODAL FIX --- */
         #post-modal {
             display:none; 
             position:fixed; 
             inset:0; 
-            background:rgba(3, 10, 26, 0.98); /* Solid dark background for glitch-free experience */
+            background:rgba(3, 10, 26, 0.98); 
             z-index: 5000; 
             align-items:center; 
             justify-content:center;
+            backdrop-filter: blur(20px);
         }
     </style>
 </head>
@@ -210,7 +216,6 @@
             <div class="logo" onclick="navTo('home')">The Jaya</div>
             <div style="display:flex; align-items:center;">
                 <button id="custom-install-btn">Install App</button>
-                
                 <div style="display:flex; align-items:center; gap:18px;">
                     <span onclick="requireLogin(toggleSearch)" style="cursor:pointer; display: flex; color: var(--text-muted);">
                         <svg viewBox="0 0 24 24"><path d="M21.71 20.29l-1.42 1.42a1 1 0 01-1.42 0l-4.52-4.52A7.89 7.89 0 019 19a8 8 0 118-8 7.89 7.89 0 01-1.81 4.35l4.52 4.52a1 1 0 010 1.42zM4 11a7 7 0 1014 0 7 7 0 00-14 0z"/></svg>
@@ -279,7 +284,7 @@
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, deleteDoc, getDoc, setDoc, where, getDocs, arrayRemove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // --- PWA SERVICE WORKER REGISTRATION ---
+        // --- PWA SERVICE WORKER ---
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js').then(reg => {
@@ -291,13 +296,11 @@
         // --- INSTALL LOGIC ---
         let deferredPrompt;
         const installBtn = document.getElementById('custom-install-btn');
-
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
             installBtn.style.display = 'block';
         });
-
         installBtn.addEventListener('click', async () => {
             if (deferredPrompt) {
                 deferredPrompt.prompt();
@@ -305,10 +308,6 @@
                 if (outcome === 'accepted') installBtn.style.display = 'none';
                 deferredPrompt = null;
             }
-        });
-
-        window.addEventListener('appinstalled', () => {
-            installBtn.style.display = 'none';
         });
 
         // Firebase Configuration
@@ -325,15 +324,17 @@
         const gProv = new GoogleAuthProvider();
         let me = null;
 
-        // FIXED LOADER TIMER WITH DISPLAY NONE
+        // --- CRITICAL LOADER FIX: DISCARD ELEMENT ---
         window.addEventListener('load', () => {
             setTimeout(() => {
                 const loader = document.getElementById('loader-screen');
                 loader.style.opacity = '0';
                 loader.style.visibility = 'hidden';
                 setTimeout(() => {
-                    loader.style.display = 'none'; // Poori tarah hatane ke liye
-                }, 500);
+                    loader.style.display = 'none';
+                    // Completely remove it to prevent any click-jacking glitches
+                    if (loader.parentNode) loader.parentNode.removeChild(loader);
+                }, 600);
             }, 3000);
         });
 
@@ -343,16 +344,12 @@
                 const input = document.getElementById('postInput');
                 input.value += text; 
                 input.focus();
-            } catch (err) {
-                console.error("Clipboard access denied", err);
-            }
+            } catch (err) { alert("Please allow clipboard access"); }
         };
         
-        // THEME LOGIC
         window.toggleTheme = () => {
             document.body.classList.toggle('light-mode');
-            const isLight = document.body.classList.contains('light-mode');
-            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            localStorage.setItem('theme', document.body.classList.contains('light-mode') ? 'light' : 'dark');
         };
         if(localStorage.getItem('theme') === 'light') document.body.classList.add('light-mode');
 
@@ -467,17 +464,13 @@
         }
 
         window.starIt = async (id, has) => { 
-            if(!auth.currentUser) {
-                alert("Please login first!");
-                return;
-            }
+            if(!auth.currentUser) return alert("Please login first!");
             await updateDoc(doc(db, "posts", id), { stars: has ? arrayRemove(auth.currentUser.uid) : arrayUnion(auth.currentUser.uid) }); 
         };
 
         window.checkEditUsername = async () => {
             const now = Date.now();
-            const diff = now - me.lastChange;
-            if(diff < 7*24*60*60*1000) { alert("Please wait 7 days!"); return; }
+            if(now - me.lastChange < 7*24*60*60*1000) return alert("Please wait 7 days!");
             const newU = prompt("New username:").toLowerCase().replace(/\s+/g,'');
             if(newU) { await updateDoc(doc(db, "users", auth.currentUser.uid), { username: newU, lastChange: now }); location.reload(); }
         };
@@ -514,8 +507,8 @@
         };
 
         window.delPost = async (id) => { if(confirm("Delete this post?")) await deleteDoc(doc(db, "posts", id)); };
-        window.toggleSearch = () => { const r = document.getElementById('search-row'); r.style.display = r.style.display === 'block'?'none':'block'; };
-        window.toggleComs = (id) => { const d = document.getElementById('drawer-'+id); d.style.display = d.style.display === 'block'?'none':'block'; };
+        window.toggleSearch = () => { const r = document.getElementById('search-row'); r.style.display = (r.style.display === 'block' ? 'none' : 'block'); };
+        window.toggleComs = (id) => { const d = document.getElementById('drawer-'+id); d.style.display = (d.style.display === 'block' ? 'none' : 'block'); };
         window.setPostModal = (s) => document.getElementById('post-modal').style.display = s?'flex':'none';
         
         window.sharePost = async (text, username) => {
