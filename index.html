@@ -19,7 +19,6 @@
             .card { padding: 25px; border-radius: 24px; transition: transform 0.2s ease; }
             .card:hover { border-color: var(--primary); }
             input, textarea { font-size: 16px; }
-            .fab { right: 50px; bottom: 50px; width: 70px; height: 70px; }
             .p-pic { width: 50px; height: 50px; }
             .stats-grid { grid-template-columns: 1fr 1fr 1fr 1fr; gap: 20px; }
             #post-modal .container { max-width: 600px; }
@@ -106,33 +105,37 @@
         button { cursor: pointer; border: none; border-radius: 12px; padding: 10px 15px; font-weight: bold; }
         .btn-primary { background: var(--primary); color: #fff; width: 100%; box-shadow: var(--neon-shadow); }
 
-        .fab { 
-            position: fixed; bottom: 35px; right: 25px; 
-            width: 60px; height: 60px; 
-            background: var(--primary); 
-            border-radius: 50%; 
-            display: flex; align-items: center; justify-content: center; 
-            color: #fff; 
-            box-shadow: var(--neon-shadow); 
-            z-index: 2000; cursor: pointer; 
-        }
-
         .p-pic { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; background: #1c1e21; }
         .user-info { display: flex; flex-direction: column; justify-content: center; }
         .post-time { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
         
-        .action-bar { display: flex; justify-content: flex-end; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; margin-top: 15px; }
+        .action-bar { display: flex; justify-content: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; margin-top: 15px; }
         
-        .download-btn { background: transparent; color: var(--primary); cursor: pointer; display: flex; align-items: center; }
+        /* Enlarged Download Button */
+        .download-btn { 
+            background: var(--primary); 
+            color: #030a1a; 
+            cursor: pointer; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 12px;
+            border-radius: 12px;
+            font-weight: 800;
+            box-shadow: var(--neon-shadow);
+            transition: transform 0.2s ease;
+        }
+        .download-btn:active { transform: scale(0.98); }
+
         .watermark { display: none; font-size: 10px; color: var(--primary); opacity: 0.6; text-align: right; margin-top: 10px; font-weight: bold; }
 
         svg { width: 20px; height: 20px; fill: currentColor; }
-        .del-icon { width: 18px; height: 18px; fill: var(--red); opacity: 0.7; }
 
         .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 25px 0; }
         .stat-card { background: rgba(0, 229, 255, 0.05); padding: 15px; border-radius: 18px; border: 1px solid var(--primary); text-align: center; }
         .stat-val { display: block; font-size: 28px; font-weight: 800; color: var(--primary); }
-        #search-row { display: none; padding: 15px; background: var(--card-bg); border-bottom: 1px solid var(--primary); }
 
         #loader-screen {
             position: fixed; inset: 0; background: #030a1a;
@@ -162,14 +165,9 @@
         <header>
             <div class="logo" onclick="navTo('home')">The Jaya</div>
             <div style="display:flex; align-items:center; gap:18px;">
-                <span onclick="requireLogin(toggleSearch)" style="cursor:pointer; color: var(--text-muted);"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg></span>
                 <img id="head-pic" src="" class="p-pic" onclick="requireLogin(() => navTo('profile', true))" style="cursor:pointer; border:2px solid var(--primary);">
             </div>
         </header>
-
-        <div id="search-row">
-            <div style="display:flex; gap:10px;"><input type="text" id="sq" placeholder="Search @username..."><button onclick="findUser()" class="btn-primary" style="width: auto;">Go</button></div>
-        </div>
 
         <div class="container">
             <div id="home-view"><div id="feed"></div></div>
@@ -188,18 +186,6 @@
                 <div id="u-feed"></div>
             </div>
         </div>
-        <div id="fab-btn" class="fab" onclick="requireLogin(() => setPostModal(true))"><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg></div>
-    </div>
-
-    <div id="post-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.9); z-index:3000; align-items:center; justify-content:center;">
-        <div class="container"><div class="card">
-            <h3>New Post</h3>
-            <textarea id="postInput" rows="5" placeholder="What's happening?"></textarea>
-            <div style="display:flex; gap:10px; margin-top:20px;">
-                <button class="btn-primary" onclick="doPost()">Post</button>
-                <button onclick="setPostModal(false)" style="background:rgba(255,255,255,0.1); color:var(--text-main);">Cancel</button>
-            </div>
-        </div></div>
     </div>
 
     <script type="module">
@@ -223,7 +209,6 @@
             return m < 1 ? "Just now" : m < 60 ? m+"m ago" : h < 24 ? h+"h ago" : Math.floor(h/24)+"d ago";
         };
 
-        const iconDelete = '<svg class="del-icon" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>';
         const iconDownload = '<svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>';
 
         onAuthStateChanged(auth, async (u) => {
@@ -278,14 +263,13 @@
                                 <strong onclick="findUserByUname('${p.username}')" style="cursor:pointer;">@${p.username}</strong>
                                 <span class="post-time">${timeAgo(p.time)}</span>
                             </div>
-                            ${(auth.currentUser && auth.currentUser.uid === p.uid) ? `<div onclick="delPost('${d.id}')" style="margin-left:auto; cursor:pointer;">${iconDelete}</div>` : ''}
                         </div>
                         <p>${p.text}</p>
                         <div class="watermark">The Jaya • @${p.username}</div>
                         <div class="action-bar">
-                            <span class="download-btn" onclick="downloadPost('${d.id}')">
-                                ${iconDownload}
-                            </span>
+                            <button class="download-btn" onclick="downloadPost('${d.id}')">
+                                ${iconDownload} Download Post
+                            </button>
                         </div>
                     `;
                     div.appendChild(el);
@@ -314,15 +298,6 @@
             link.click();
         };
 
-        window.doPost = async () => {
-            const t = document.getElementById('postInput').value;
-            if(!t.trim()) return;
-            await addDoc(collection(db, "posts"), { text: t, username: me.username, pic: auth.currentUser.photoURL, uid: auth.currentUser.uid, stars: [], comments: [], time: Date.now() });
-            setPostModal(false);
-        };
-        window.delPost = async (id) => { if(confirm("Delete?")) await deleteDoc(doc(db, "posts", id)); };
-        window.setPostModal = (s) => document.getElementById('post-modal').style.display = s?'flex':'none';
-        window.toggleSearch = () => { const s = document.getElementById('search-row'); s.style.display = s.style.display==='block'?'none':'block'; };
         window.logout = () => signOut(auth).then(() => location.reload());
         document.getElementById('googleLogin').onclick = () => signInWithPopup(auth, gProv);
         document.getElementById('guest-trigger').onclick = () => { document.getElementById('auth-section').style.display='none'; document.getElementById('main-app').style.display='block'; loadFeed("feed", null); };
