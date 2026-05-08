@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saga Twitte Master</title>
+    <style>
+        :root { --primary: #00acee; --bg: #0f172a; --card: rgba(30, 41, 59, 0.8); --white: #ffffff; --star: #fbbf24; --red: #ef4444; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--white); margin: 0; padding-bottom: 90px; overflow-x: hidden; }
+        
+        header { background: var(--card); backdrop-filter: blur(12px); padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.1); position: sticky; top: 0; z-index: 1000; }
+        .logo { font-size: 22px; font-weight: 900; color: var(--primary); cursor: pointer; }
+        .search-container { display: flex; gap: 8px; margin-top: 10px; }
+        .search-input { flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 8px 12px; color: white; outline: none; }
+        
+        .container { width: 95%; max-width: 500px; margin: 15px auto; }
+        .card { background: var(--card); backdrop-filter: blur(20px); padding: 18px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; position: relative; }
+        
+        input, textarea { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px; color: white; box-sizing: border-box; margin-bottom: 10px; font-family: inherit; }
+        button { cursor: pointer; border: none; border-radius: 12px; padding: 10px 15px; font-weight: bold; transition: 0.2s; }
+        .btn-primary { background: var(--primary); color: white; width: 100%; }
+
+        .fab { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); width: 65px; height: 65px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; color: white; box-shadow: 0 8px 25px rgba(0,172,238,0.5); z-index: 2000; cursor: pointer; border: 3px solid var(--bg); }
+        #post-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 3000; align-items: center; justify-content: center; }
+
+        .post-author { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+        .p-pic { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(255,255,255,0.1); }
+        .post-time { font-size: 11px; color: #94a3b8; display: block; margin-bottom: 10px; }
+        
+        .action-bar { display: flex; gap: 15px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 12px; margin-top: 12px; align-items: center; }
+        .action-btn { background: transparent; color: #94a3b8; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+        .vote-count { font-weight: bold; color: var(--white); min-width: 15px; text-align: center; }
+
+        .comment-drawer { display: none; margin-top: 15px; background: rgba(0,0,0,0.3); border-radius: 15px; padding: 12px; border: 1px solid rgba(255,255,255,0.05); }
+        .comment-msg { margin-bottom: 10px; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.03); padding-bottom: 8px; }
+        
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0; }
+        .stat-card { background: rgba(0, 172, 238, 0.1); padding: 15px; border-radius: 18px; border: 1px solid var(--primary); text-align: center; }
+        .stat-val { display: block; font-size: 26px; font-weight: 800; color: var(--primary); }
+        
+        .close-btn { position: absolute; top: 15px; right: 15px; cursor: pointer; font-size: 22px; opacity: 0.6; }
+        #auth-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 5000; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+
+        #acc-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 7000; padding: 20px; flex-direction: column; align-items: center; justify-content: center; }
+        .acc-item { background: rgba(255,255,255,0.05); padding: 12px; border-radius: 12px; display: flex; align-items: center; gap: 10px; width: 100%; max-width: 300px; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div id="auth-overlay">
+        <h1 class="logo" style="font-size: 45px; margin-bottom: 30px;">Saga Twitte</h1>
+        <div class="card" style="width: 100%; max-width: 400px;">
+            <input type="email" id="auth-email" placeholder="Email Address">
+            <input type="password" id="auth-pass" placeholder="Password">
+            <button class="btn-primary" onclick="handleEmailAuth('login')">Login</button>
+            <button onclick="handleEmailAuth('signup')" style="background:transparent; color:white; margin-top:10px; width:100%;">Create New Account</button>
+            <div style="margin: 20px 0; opacity: 0.3;">OR</div>
+            <button id="googleLogin" style="background:white; color:black; width:100%;">Continue with Google</button>
+            <button onclick="openSwitcher()" style="margin-top:15px; background:rgba(255,255,255,0.1); color:white; width:100%;">Switch Account</button>
+        </div>
+    </div>
+
+    <div id="username-overlay" style="display:none; position:fixed; inset:0; background:var(--bg); z-index:6000; padding:50px 20px; text-align:center;">
+        <h1 class="logo">Saga Twitte</h1>
+        <div class="card" style="margin-top:40px;">
+            <h3>Pick a Unique Username</h3>
+            <input type="text" id="setup-username" placeholder="@username">
+            <button class="btn-primary" onclick="setupUser()">Let's Go!</button>
+        </div>
+    </div>
+
+    <div id="acc-modal">
+        <h2 style="color:var(--primary);">Your Accounts</h2>
+        <div id="acc-list" style="width:100%; display:flex; flex-direction:column; align-items:center;"></div>
+        <button onclick="closeSwitcher()" style="background:var(--red); color:white; margin-top:20px;">Close</button>
+    </div>
+
+    <div id="fab-btn" class="fab" style="display:none;" onclick="setModal(true)">+</div>
+
+    <div id="post-modal">
+        <div class="container"><div class="card">
+            <span class="close-btn" onclick="setModal(false)">✕</span>
+            <h3>What's happening?</h3>
+            <textarea id="postInput" rows="5" placeholder="Write your thoughts..."></textarea>
+            <button class="btn-primary" onclick="savePost()">Post Twitte</button>
+        </div></div>
+    </div>
+
+    <header id="app-header" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="logo" onclick="nav('home')">Saga Twitte</div>
+            <div style="display:flex; align-items:center; gap:12px;">
+                <img id="my-pic" class="p-pic" onclick="openSwitcher()" style="cursor:pointer; border:2px solid var(--primary); background: #eee;">
+                <button onclick="logout()" style="background:var(--red); color:white; font-size:10px; padding:5px 10px;">Logout</button>
+            </div>
+        </div>
+        <div class="search-container">
+            <input type="text" id="sq" class="search-input" placeholder="Find @username...">
+            <button onclick="findUser()" style="background:var(--primary); color:white; border-radius:10px; padding:0 15px;">Search</button>
+        </div>
+    </header>
+
+    <div class="container">
+        <div id="home-view" style="display:none;"><div id="feed"></div></div>
+
+        <div id="profile-view" style="display:none;" class="card">
+            <span class="close-btn" style="left:15px; right:auto;" onclick="nav('home')">✕</span>
+            <div style="text-align:center; padding-top:10px;">
+                <img id="u-img" style="width:110px; height:110px; border-radius:50%; border:4px solid var(--primary); object-fit:cover;">
+                <h2 id="u-name" style="margin:15px 0 5px;">@username</h2>
+                <div class="stats-grid">
+                    <div class="stat-card"><span id="s-stars" class="stat-val">0</span><small>Stars</small></div>
+                    <div class="stat-card"><span id="s-posts" class="stat-val">0</span><small>Posts</small></div>
+                </div>
+                <div id="my-tools" style="display:none;">
+                    <button onclick="editUserCheck()" style="background:rgba(255,255,255,0.1); color:white; border:1px solid rgba(255,255,255,0.2);">Edit Username</button>
+                    <p id="lock-msg" style="font-size:11px; color:var(--red); margin-top:10px; font-weight:bold;"></p>
+                </div>
+            </div>
+            <hr style="opacity:0.1; margin:25px 0;">
+            <div id="u-feed"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, deleteDoc, getDoc, setDoc, where, getDocs, arrayRemove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const conf = { apiKey: "AIzaSyC2DSzlGsl5y3NwgOpgIOC-1OUYyKEaZ5k", authDomain: "saga-social-a13a4.firebaseapp.com", projectId: "saga-social-a13a4", storageBucket: "saga-social-a13a4.appspot.com" };
+        const app = initializeApp(conf);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const gProv = new GoogleAuthProvider();
+        let me = null;
+
+        const getSavedAccs = () => JSON.parse(localStorage.getItem('saga_accounts') || '[]');
+        const saveAcc = (email, pass) => {
+            let accs = getSavedAccs();
+            if(!accs.find(a => a.email === email)) {
+                accs.push({email, pass});
+                localStorage.setItem('saga_accounts', JSON.stringify(accs));
+            }
+        };
+
+        window.openSwitcher = () => {
+            const list = document.getElementById('acc-list');
+            list.innerHTML = "";
+            const accs = getSavedAccs();
+            accs.forEach(acc => {
+                const div = document.createElement('div');
+                div.className = 'acc-item';
+                div.innerHTML = `<span>👤</span> <div><b>${acc.email}</b></div>`;
+                div.onclick = () => {
+                    signInWithEmailAndPassword(auth, acc.email, acc.pass)
+                    .then(() => closeSwitcher())
+                    .catch(e => alert("Login failed or password changed."));
+                };
+                list.appendChild(div);
+            });
+            const addBtn = document.createElement('div');
+            addBtn.className = 'acc-item';
+            addBtn.style.border = "1px dashed var(--primary)";
+            addBtn.innerHTML = `<span>➕</span> <b>Add Account</b>`;
+            addBtn.onclick = () => { logout(); closeSwitcher(); };
+            list.appendChild(addBtn);
+            document.getElementById('acc-modal').style.display = 'flex';
+        };
+
+        window.closeSwitcher = () => document.getElementById('acc-modal').style.display = 'none';
+
+        onAuthStateChanged(auth, async (u) => {
+            if(u) {
+                const docSnap = await getDoc(doc(db, "users", u.uid));
+                if(!docSnap.exists() || !docSnap.data().username) {
+                    document.getElementById('username-overlay').style.display = 'block';
+                    document.getElementById('auth-overlay').style.display = 'none';
+                } else {
+                    me = docSnap.data();
+                    nav('home');
+                    document.getElementById('auth-overlay').style.display = 'none';
+                    document.getElementById('username-overlay').style.display = 'none';
+                    document.getElementById('fab-btn').style.display = 'flex';
+                }
+            } else {
+                document.getElementById('auth-overlay').style.display = 'flex';
+                document.getElementById('app-header').style.display = 'none';
+                document.getElementById('fab-btn').style.display = 'none';
+                document.getElementById('home-view').style.display = 'none';
+                document.getElementById('profile-view').style.display = 'none';
+            }
+        });
+
+        window.handleEmailAuth = (mode) => {
+            const e = document.getElementById('auth-email').value, p = document.getElementById('auth-pass').value;
+            if(!e || p.length < 6) return alert("Valid Email & 6+ char password required!");
+            const action = mode === 'signup' ? createUserWithEmailAndPassword : signInWithEmailAndPassword;
+            action(auth, e, p).then(() => { saveAcc(e, p); }).catch(err => alert(err.message));
+        };
+
+        const timeAgo = (t) => {
+            const d = Date.now() - t, s = Math.floor(d/1000), m = Math.floor(s/60), h = Math.floor(m/60), day = Math.floor(h/24);
+            if(s < 60) return "Just now"; if(m < 60) return `${m}m ago`; if(h < 24) return `${h}h ago`;
+            return `${day} days ago`;
+        };
+
+        window.nav = (v, isMe = true, other = null) => {
+            document.getElementById('home-view').style.display = v === 'home' ? 'block' : 'none';
+            document.getElementById('profile-view').style.display = v === 'profile' ? 'block' : 'none';
+            document.getElementById('app-header').style.display = 'flex';
+            document.getElementById('my-pic').src = auth.currentUser.photoURL || "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+            if(v === 'home') syncFeed("feed", null, true);
+            if(v === 'profile') {
+                const user = isMe ? me : other;
+                document.getElementById('u-img').src = user.pic || "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+                document.getElementById('u-name').innerText = "@" + user.username;
+                document.getElementById('my-tools').style.display = isMe ? 'block' : 'none';
+                syncFeed("u-feed", user.uid, false);
+                if(isMe) startLockTimer();
+            }
+        };
+
+        function syncFeed(id, uid, filter7) {
+            let q;
+            const week = Date.now() - (7*24*60*60*1000);
+            if(uid) q = query(collection(db, "posts"), where("uid", "==", uid), orderBy("time", "desc"));
+            else if(filter7) q = query(collection(db, "posts"), where("time", ">=", week), orderBy("time", "desc"));
+            else q = query(collection(db, "posts"), orderBy("time", "desc"));
+
+            onSnapshot(q, (s) => {
+                const div = document.getElementById(id);
+                div.innerHTML = ""; let stars = 0, posts = 0;
+                s.forEach(docBox => {
+                    const p = docBox.data();
+                    if(uid) { stars += (p.stars?.length || 0); posts++; }
+                    const el = document.createElement('div');
+                    el.className = 'card';
+                    el.innerHTML = `
+                        <div class="post-author">
+                            <img src="${p.pic || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'}" class="p-pic">
+                            <strong>@${p.username}</strong>
+                            <span onclick="dropPost('${docBox.id}')" style="margin-left:auto; opacity:0.4; cursor:pointer;">🗑️</span>
+                        </div>
+                        <span class="post-time">${timeAgo(p.time)}</span>
+                        <p style="margin-top:0;">${p.text}</p>
+                        <div class="action-bar">
+                            <span class="action-btn" onclick="votePost('${docBox.id}', 1)" style="color:var(--primary); font-size:18px;">⬆️</span>
+                            <span class="vote-count">${p.stars?.length || 0}</span>
+                            <span class="action-btn" onclick="votePost('${docBox.id}', -1)" style="color:var(--red); font-size:18px;">⬇️</span>
+                            <span class="action-btn" onclick="showComms('${docBox.id}')">💬 ${p.comments?.length || 0}</span>
+                            <span class="action-btn" onclick="sharePost('${p.text}')">🔗 Share</span>
+                        </div>
+                        <div id="com-${docBox.id}" class="comment-drawer">
+                            <div id="list-${docBox.id}">${(p.comments || []).map((c, i) => `
+                                <div class="comment-msg"><b>@${c.user}</b>: ${c.msg} 
+                                <small onclick="dropComm('${docBox.id}', ${i})" style="color:var(--red); float:right; cursor:pointer;">Del</small>
+                                </div>`).join('')}</div>
+                            <div style="display:flex; gap:8px; margin-top:10px;">
+                                <input id="in-${docBox.id}" placeholder="Reply..." style="margin:0; font-size:12px; height:35px;">
+                                <button onclick="addComm('${docBox.id}')" style="background:var(--primary); font-size:11px; padding:0 15px;">Send</button>
+                            </div>
+                        </div>
+                    `;
+                    div.appendChild(el);
+                });
+                if(uid) { document.getElementById('s-stars').innerText = stars; document.getElementById('s-posts').innerText = posts; }
+            });
+        }
+
+        window.savePost = async () => {
+            const t = document.getElementById('postInput').value;
+            if(!t.trim()) return;
+            await addDoc(collection(db, "posts"), { text: t, username: me.username, pic: auth.currentUser.photoURL || "", uid: auth.currentUser.uid, stars: [], comments: [], time: Date.now() });
+            document.getElementById('postInput').value = ""; setModal(false);
+        };
+
+        window.votePost = async (id, val) => {
+            const r = doc(db, "posts", id);
+            const snap = await getDoc(r);
+            if(!snap.exists()) return;
+            let current = snap.data().stars || [];
+            if(val === 1) {
+                await updateDoc(r, { stars: arrayUnion(Date.now().toString() + Math.random()) });
+            } else if(val === -1 && current.length > 0) {
+                current.pop();
+                await updateDoc(r, { stars: current });
+            }
+        };
+
+        window.addComm = async (id) => {
+            const i = document.getElementById('in-'+id);
+            if(!i.value.trim()) return;
+            await updateDoc(doc(db, "posts", id), { comments: arrayUnion({ uid: auth.currentUser.uid, user: me.username, msg: i.value }) });
+            i.value = "";
+        };
+
+        window.dropComm = async (pid, idx) => {
+            const r = doc(db, "posts", pid);
+            const snap = await getDoc(r);
+            let c = snap.data().comments; c.splice(idx, 1);
+            await updateDoc(r, { comments: c });
+        };
+
+        window.setupUser = async () => {
+            const u = document.getElementById('setup-username').value.trim().toLowerCase();
+            if(u.length < 3) return alert("Min 3 letters!");
+            const check = await getDocs(query(collection(db, "users"), where("username", "==", u)));
+            if(!check.empty) return alert("Username Taken!");
+            await setDoc(doc(db, "users", auth.currentUser.uid), { username: u, uid: auth.currentUser.uid, lastChange: Date.now(), pic: auth.currentUser.photoURL || "" });
+            location.reload();
+        };
+
+        window.findUser = async () => {
+            const qStr = document.getElementById('sq').value.toLowerCase().trim();
+            const s = await getDocs(query(collection(db, "users"), where("username", "==", qStr)));
+            if(s.empty) alert("Username Not Found!"); else nav('profile', false, s.docs[0].data());
+        };
+
+        window.startLockTimer = () => {
+            const next = (me.lastChange || 0) + (7*24*60*60*1000);
+            const el = document.getElementById('lock-msg');
+            const upd = () => {
+                const diff = next - Date.now();
+                if(diff > 0) el.innerText = `Edit Locked: ${Math.floor(diff/(1000*60*60*24))}d left`;
+                else el.innerText = "Edit Available!";
+            };
+            upd(); setInterval(upd, 60000);
+        };
+
+        window.editUserCheck = () => {
+            if(Date.now() < (me.lastChange || 0) + (7*24*60*60*1000)) return alert("Username change is locked for 7 days!");
+            document.getElementById('username-overlay').style.display = 'block';
+        };
+
+        window.setModal = (s) => document.getElementById('post-modal').style.display = s ? 'flex' : 'none';
+        window.showComms = (id) => { const d = document.getElementById('com-'+id); d.style.display = d.style.display === 'block' ? 'none' : 'block'; };
+        window.sharePost = (t) => navigator.share({ title: 'Saga Twitte', text: t, url: location.href });
+        window.dropPost = async (id) => { if(confirm("Delete Twitte? Sab ke liye delete ho jayega.")) await deleteDoc(doc(db, "posts", id)); };
+        window.logout = () => signOut(auth);
+        document.getElementById('googleLogin').onclick = () => signInWithPopup(auth, gProv);
+    </script>
+</body>
+</html>
