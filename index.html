@@ -7,7 +7,7 @@
     <link rel="icon" type="image/jpeg" href="logo.jpg?v=1.1">
     <link rel="apple-touch-icon" sizes="192x192" href="logo.jpg?v=1.1">
     <link rel="manifest" href="manifest.json">
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
      <style>
         /* --- DESKTOP OPTIMIZATION --- */
         @media (min-width: 768px) {
@@ -560,5 +560,108 @@
         postInput.addEventListener('keyup', updateWordCount);
         postInput.addEventListener('change', updateWordCount);
     </script>
+    <style>
+    /* Download button aur watermark ke liye naye styles */
+    .download-btn {
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        color: var(--text-muted);
+        transition: 0.3s;
+    }
+    .download-btn:hover { color: var(--primary); }
+    
+    .watermark {
+        display: none; /* Sirf image download ke waqt dikhega */
+        font-size: 10px;
+        color: var(--primary);
+        text-align: right;
+        margin-top: 10px;
+        font-weight: bold;
+        opacity: 0.6;
+    }
+</style>
+
+<script type="module">
+    // ... aapka purana import logic ...
+
+    // Naya Download Function
+    window.downloadPost = (id) => {
+        const postElement = document.getElementById(`post-card-${id}`);
+        const watermark = postElement.querySelector('.watermark');
+        const actionButtons = postElement.querySelector('.action-bar');
+        const delBtn = postElement.querySelector('.del-wrapper');
+
+        // Download ke liye styling adjust karein
+        watermark.style.display = 'block';
+        actionButtons.style.opacity = '0'; // Buttons chhupa dein
+        if(delBtn) delBtn.style.display = 'none';
+
+        html2canvas(postElement, {
+            backgroundColor: "#030a1a", // Card ka asli background
+            scale: 2, // High quality image ke liye
+            useCORS: true
+        }).then(canvas => {
+            const link = document.createElement('a');
+            link.download = `TheJaya-Post-${id}.png`;
+            link.href = canvas.toDataURL("image/png");
+            link.click();
+
+            // Wapas normal kar dein
+            watermark.style.display = 'none';
+            actionButtons.style.opacity = '1';
+            if(delBtn) delBtn.style.display = 'block';
+        });
+    };
+
+    // loadFeed function ke andar ka HTML template update karein
+    function loadFeed(divId, uid) {
+        // ... (existing query logic) ...
+        
+        onSnapshot(q, (s) => {
+            const div = document.getElementById(divId); div.innerHTML = "";
+            s.forEach(d => {
+                const p = d.data();
+                const userPic = (p.pic && p.pic !== "" && p.pic !== "null") ? p.pic : defaultAvtr;
+                const isStarred = auth.currentUser ? p.stars?.includes(auth.currentUser.uid) : false;
+
+                const el = document.createElement('div');
+                el.className = 'card';
+                el.id = `post-card-${d.id}`; // ID add ki image select karne ke liye
+                el.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:12px; margin-bottom:15px;">
+                        <img src="${userPic}" class="p-pic" onerror="this.src='${defaultAvtr}'">
+                        <div class="user-info">
+                            <strong onclick="requireLogin(() => findUserByUname('${p.username}'))" style="cursor:pointer;">@${p.username}</strong>
+                            <span class="post-time">${timeAgo(p.time)}</span>
+                        </div>
+                        <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
+                            <button class="download-btn" onclick="downloadPost('${d.id}')" title="Download Image">
+                                <svg viewBox="0 0 24 24" style="width:18px; height:18px;"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>
+                            </button>
+                            <div class="del-wrapper">
+                                ${(auth.currentUser && auth.currentUser.uid === p.uid) ? `<div onclick="delPost('${d.id}')" style="cursor:pointer;">${iconDelete}</div>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <p style="margin: 0; line-height:1.5;">${p.text}</p>
+                    <div class="watermark">The Jaya • @${p.username}</div>
+                    <div class="action-bar">
+                        <span class="action-btn" onclick="starIt('${d.id}', ${isStarred})" style="color:${isStarred?'var(--star)':''}">
+                            ${iconStar} ${p.stars?.length || 0}
+                        </span>
+                        <span class="action-btn" onclick="requireLogin(() => toggleComs('${d.id}'))">
+                            ${iconComment} ${p.comments?.length || 0}
+                        </span>
+                        <span class="action-btn" onclick="sharePost('${p.text.replace(/'/g, "\\'")}', '${p.username}')">
+                            ${iconShare} Share
+                        </span>
+                    </div>
+                    `;
+                div.appendChild(el);
+            });
+        });
+    }
+</script>
 </body>
 </html>
