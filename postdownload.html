@@ -7,6 +7,10 @@
     <link rel="icon" type="image/jpeg" href="logo.jpg?v=1.1">
     <link rel="apple-touch-icon" sizes="192x192" href="logo.jpg?v=1.1">
     <link rel="manifest" href="manifest.json">
+    <a href="index.html" class="floating-btn" onclick="navTo('home')" title="Back to Home">
+    <svg viewBox="0 0 24 24" style="width: 24px; height: 24px;"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+</a>
+
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
@@ -38,6 +42,28 @@
             --red: #ff4444; 
             --neon-shadow: 0 0 15px rgba(0, 229, 255, 0.6);
         }
+         /* Floating Back/Link Button */
+.floating-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--primary);
+    color: #030a1a;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--neon-shadow);
+    text-decoration: none;
+    z-index: 1001;
+    transition: transform 0.2s;
+    border: none;
+    cursor: pointer;
+}
+.floating-btn:active { transform: scale(0.9); }
+         
 
         body.light-mode {
             --bg: #f0f2f5;
