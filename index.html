@@ -308,13 +308,6 @@
                 <div style="text-align:center;">
                     <img id="u-img" style="width:110px; height:110px; border-radius:50%; border:3px solid var(--primary); object-fit:cover;">
                     <h2 id="u-name" style="margin:15px 0;">@username</h2>
-                    
-                    <div id="verification-section" style="margin-bottom: 15px; display: none;">
-                        <div class="verify-box">
-                            <span id="verify-status-text">Email Verification Status</span>
-                            <button id="sendVerifyEmailBtn" style="background: var(--primary); color: #030a1a; padding: 4px 10px; font-size: 11px; margin-left: 8px; display: none;">Verify Now</button>
-                        </div>
-                    </div>
 
                     <div class="stats-grid">
                         <div class="stat-card"><span id="s-stars" class="stat-val">0</span><small>Stars</small></div>
@@ -360,8 +353,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        // updateEmail aur sendEmailVerification ko sahi tarike se import kiya gaya hai
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, updateEmail, sendEmailVerification } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, deleteDoc, getDoc, setDoc, where, getDocs, arrayRemove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const defaultAvtr = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
@@ -437,17 +429,10 @@
                 if(dSnap.exists()) {
                     me = dSnap.data();
                     
-                    // FIXED FLOW: Jab user email link se verify kar lega, tab ye real email ko save karega aur automatic avatar lagayega
-                    if(u.emailVerified && u.email && !u.email.endsWith('@thejaya.com') && me.email !== u.email) {
+                    if(u.emailVerified && (!me.pic || me.pic === defaultAvtr || me.pic === "null")) {
                         const automaticGmailPic = `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80`;
                         me.pic = automaticGmailPic;
-                        me.email = u.email;
-                        
-                        // Database update: username ke sath original email dono apas me connect ho kar save ho rahe hain
-                        await updateDoc(doc(db, "users", u.uid), { 
-                            pic: automaticGmailPic,
-                            email: u.email 
-                        });
+                        await updateDoc(doc(db, "users", u.uid), { pic: automaticGmailPic });
                     }
 
                     document.getElementById('main-app').style.display = 'block';
@@ -464,7 +449,6 @@
                     location.reload();
                 }
             } else {
-                // Freezing bug completely resolved: proper assignment to .style.display
                 document.getElementById('auth-section').style.display = 'block';
                 document.getElementById('main-app').style.display = 'none';
             }
@@ -558,40 +542,6 @@
             } else cb();
         };
 
-        // NEW CUSTOM METHOD: Prompt kholkar original email lena aur verification link bhejna
-        window.sendVerificationEmail = async () => {
-            const user = auth.currentUser;
-            if (!user) {
-                alert("No logged in user found.");
-                return;
-            }
-
-            const realEmail = prompt("Enter your original/real Gmail address for verification:");
-            
-            if (!realEmail || !realEmail.trim()) {
-                alert("Email is required!");
-                return;
-            }
-
-            const emailTarget = realEmail.trim().toLowerCase();
-            
-            if(!emailTarget.includes('@') || !emailTarget.includes('.')) {
-                alert("Please enter a valid email address!");
-                return;
-            }
-
-            try {
-                // Firebase login state ko pseudo-email se original email par badla
-                await updateEmail(user, emailTarget);
-                // Original inbox par link bhej diya
-                await sendEmailVerification(user);
-                
-                alert("Verification link has been sent to " + emailTarget + "\nPlease click the link inside your email, then refresh this app.");
-            } catch (error) {
-                alert("Error: " + error.message);
-            }
-        };
-
         window.navTo = (v, isMe = true, other = null) => {
             document.getElementById('home-view').style.display = v === 'home' ? 'block' : 'none';
             document.getElementById('profile-view').style.display = v === 'profile' ? 'block' : 'none';
@@ -606,28 +556,6 @@
                 document.getElementById('u-img').src = (user.pic && user.pic !== "null") ? user.pic : defaultAvtr;
                 document.getElementById('u-name').innerText = "@" + (user.username || "user");
                 document.getElementById('my-controls').style.display = isMe ? 'block' : 'none';
-                
-                const verifySection = document.getElementById('verification-section');
-                if(isMe && auth.currentUser) {
-                    verifySection.style.display = 'block';
-                    const statusText = document.getElementById('verify-status-text');
-                    const verifyBtn = document.getElementById('sendVerifyEmailBtn');
-                    
-                    // Click handler ko assign kiya naye method ke sath
-                    verifyBtn.onclick = window.sendVerificationEmail;
-                    
-                    if(auth.currentUser.emailVerified && !auth.currentUser.email.endsWith('@thejaya.com')) {
-                        statusText.innerHTML = `✅ Verified (${user.email || auth.currentUser.email})`;
-                        statusText.style.color = "var(--primary)";
-                        verifyBtn.style.display = 'none';
-                    } else {
-                        statusText.innerHTML = "❌ Email Unverified";
-                        statusText.style.color = "var(--red)";
-                        verifyBtn.style.display = 'inline-block';
-                    }
-                } else {
-                    verifySection.style.display = 'none';
-                }
 
                 loadFeed("u-feed", user.uid);
             }
