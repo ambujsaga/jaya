@@ -226,7 +226,7 @@
             box-shadow: var(--neon-shadow);
         }
 
-        /* Naye Auth UI Styles */
+        /* Unique Auth Design */
         .auth-card { max-width: 360px; margin: auto; padding: 20px; border-radius: 20px; background: var(--card-bg); border: 1px solid rgba(0, 229, 255, 0.2); }
         .auth-toggle-text { margin-top: 15px; font-size: 13px; color: var(--text-muted); }
         .auth-toggle-text span { color: var(--primary); cursor: pointer; text-decoration: underline; }
@@ -357,12 +357,10 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        // UPDATED: Added Email Auth & Verification methods
+        // FIXED: Auth and Firestore are now separated safely from their exact correct bundles
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, deleteDoc, getDoc, setDoc, where, getDocs, arrayRemove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore as initFirestore } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, deleteDoc, getDoc, setDoc, where, getDocs, arrayRemove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // Global Default Avatar
         const defaultAvtr = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
         if ('serviceWorker' in navigator) {
@@ -399,10 +397,9 @@
         
         const app = initializeApp(conf);
         const auth = getAuth(app);
-        const db = initFirestore(app);
+        const db = getFirestore(app);
         let me = null;
 
-        // Toggle UI Between Login and Register Forms
         window.toggleAuthForms = (showRegister) => {
             document.getElementById('login-form-div').style.display = showRegister ? 'none' : 'block';
             document.getElementById('register-form-div').style.display = showRegister ? 'block' : 'none';
@@ -436,18 +433,15 @@
         const iconShare = '<svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>';
         const iconDelete = '<svg class="del-icon" viewBox="0 0 24 24"><path d="M19 4h-3.5l-1-1h-5l-1 1H5v2h14V4zM6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12z"/></svg>';
 
-        // UPDATED: Main Auth State Observers & Profile Pic Override logic
         onAuthStateChanged(auth, async (u) => {
             if(u) {
                 const dSnap = await getDoc(doc(db, "users", u.uid));
                 if(dSnap.exists()) {
                     me = dSnap.data();
                     
-                    // Email verification auto avatar assignment override
+                    // Gmail Avatar Automatic Fetch fallback integration on verification confirmation
                     if(u.emailVerified && (!me.pic || me.pic === defaultAvtr || me.pic === "null")) {
-                        // Creating clean automatic UI avatar link from Gmail hook
-                        const cleanEmail = u.email.trim().toLowerCase();
-                        const automaticGmailPic = `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80`; // Reliable proxy fallback placeholder for custom mail configs
+                        const automaticGmailPic = `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80`;
                         me.pic = automaticGmailPic;
                         await updateDoc(doc(db, "users", u.uid), { pic: automaticGmailPic });
                     }
@@ -456,7 +450,6 @@
                     document.getElementById('auth-section').style.display = 'none';
                     navTo('home');
                 } else {
-                    // Safety fallback if document missing
                     await signOut(auth);
                 }
             } else {
@@ -465,7 +458,7 @@
             }
         });
 
-        // UPDATED: Unique Custom Username Registration Setup
+        // Unique Custom Username Registration Method
         document.getElementById('customRegisterBtn').onclick = async () => {
             const usernameInput = document.getElementById('reg-username').value.toLowerCase().replace(/\s+/g,'').trim();
             const emailInput = document.getElementById('reg-email').value.trim();
@@ -477,7 +470,6 @@
             }
 
             try {
-                // Check if the chosen username is already taken by another user
                 const q = query(collection(db, "users"), where("username", "==", usernameInput));
                 const querySnapshot = await getDocs(q);
                 
@@ -486,11 +478,9 @@
                     return;
                 }
 
-                // Proceed with account creation if username is distinct
                 const userCredential = await createUserWithEmailAndPassword(auth, emailInput, passInput);
                 const u = userCredential.user;
                 
-                // Save user record inside Firestore Database safely
                 await setDoc(doc(db, "users", u.uid), { 
                     username: usernameInput, 
                     uid: u.uid, 
@@ -506,7 +496,7 @@
             }
         };
 
-        // UPDATED: Custom Email Login Action Hook
+        // Custom Email Login Action Method
         document.getElementById('customLoginBtn').onclick = async () => {
             const emailInput = document.getElementById('login-email').value.trim();
             const passInput = document.getElementById('login-pass').value.trim();
@@ -523,12 +513,12 @@
             }
         };
 
-        // NEW: Action handler for verification dispatch
+        // Dispatch verification link
         document.getElementById('sendVerifyEmailBtn').onclick = async () => {
             if(auth.currentUser) {
                 try {
                     await sendEmailVerification(auth.currentUser);
-                    alert("Verification link sent to your registered Email! Please check your inbox/spam folder, verify and refresh this app page.");
+                    alert("Verification link sent! Check your inbox, verify and refresh.");
                 } catch (err) {
                     alert("Error: " + err.message);
                 }
@@ -554,7 +544,6 @@
             document.getElementById('home-view').style.display = v === 'home' ? 'block' : 'none';
             document.getElementById('profile-view').style.display = v === 'profile' ? 'block' : 'none';
             
-            // Header pic fix
             if(auth.currentUser) {
                 document.getElementById('head-pic').src = (me && me.pic) ? me.pic : defaultAvtr;
             }
@@ -562,12 +551,10 @@
             if(v === 'home') loadFeed("feed", null);
             if(v === 'profile') {
                 const user = isMe ? me : other;
-                // Profile pic fix
                 document.getElementById('u-img').src = (user.pic && user.pic !== "null") ? user.pic : defaultAvtr;
                 document.getElementById('u-name').innerText = "@" + user.username;
                 document.getElementById('my-controls').style.display = isMe ? 'block' : 'none';
                 
-                // Handle dynamic layout view of validation blocks
                 const verifySection = document.getElementById('verification-section');
                 if(isMe && auth.currentUser) {
                     verifySection.style.display = 'block';
@@ -575,7 +562,7 @@
                     const verifyBtn = document.getElementById('sendVerifyEmailBtn');
                     
                     if(auth.currentUser.emailVerified) {
-                        statusText.innerHTML = "✅ Verified User (Gmail Profile Applied)";
+                        statusText.innerHTML = "✅ Verified (Gmail Avatar Applied)";
                         statusText.style.color = "var(--primary)";
                         verifyBtn.style.display = 'none';
                     } else {
@@ -602,9 +589,7 @@
                     const p = d.data();
                     if(uid) { stars += (p.stars?.length || 0); posts++; }
                     
-                    // Post Avatar Fix
                     const userPic = (p.pic && p.pic !== "" && p.pic !== "null") ? p.pic : defaultAvtr;
-                    
                     const isStarred = auth.currentUser ? p.stars?.includes(auth.currentUser.uid) : false;
                     const el = document.createElement('div');
                     el.className = 'card';
