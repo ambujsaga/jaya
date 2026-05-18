@@ -228,8 +228,6 @@
 
         /* Unique Auth Design */
         .auth-card { max-width: 360px; margin: auto; padding: 20px; border-radius: 20px; background: var(--card-bg); border: 1px solid rgba(0, 229, 255, 0.2); }
-        .auth-toggle-text { margin-top: 15px; font-size: 13px; color: var(--text-muted); }
-        .auth-toggle-text span { color: var(--primary); cursor: pointer; text-decoration: underline; }
         .verify-box { margin-top: 15px; padding: 12px; border-radius: 12px; background: rgba(0, 229, 255, 0.05); border: 1px dashed var(--primary); font-size: 13px; }
     </style>
 </head>
@@ -250,21 +248,11 @@
     <div id="auth-section" style="display:none; text-align:center; padding-top:60px;">
         <h1 class="logo" style="font-size:45px; margin-bottom: 20px;">The Jaya</h1>
         
-        <div id="login-form-div" class="auth-card">
-            <h3>Login</h3>
-            <input type="email" id="login-email" placeholder="Email Address">
-            <input type="password" id="login-pass" placeholder="Password">
-            <button id="customLoginBtn" class="btn-primary" style="margin-top: 10px;">Login</button>
-            <p class="auth-toggle-text">Don't have an account? <span onclick="toggleAuthForms(true)">Register Here</span></p>
-        </div>
-
-        <div id="register-form-div" class="auth-card" style="display: none;">
+        <div id="register-form-div" class="auth-card">
             <h3>Create Account</h3>
             <input type="text" id="reg-username" placeholder="Choose Unique Username" autocomplete="off">
-            <input type="email" id="reg-email" placeholder="Email Address">
             <input type="password" id="reg-pass" placeholder="Password">
             <button id="customRegisterBtn" class="btn-primary" style="margin-top: 10px;">Sign Up</button>
-            <p class="auth-toggle-text">Already have an account? <span onclick="toggleAuthForms(false)">Login Here</span></p>
         </div>
 
         <p id="guest-trigger" style="color:var(--primary); margin-top:20px; cursor:pointer; text-decoration:underline;">Continue as Guest</p>
@@ -357,7 +345,6 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        // FIXED: Auth and Firestore are now separated safely from their exact correct bundles
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendEmailVerification, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, deleteDoc, getDoc, setDoc, where, getDocs, arrayRemove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -400,11 +387,6 @@
         const db = getFirestore(app);
         let me = null;
 
-        window.toggleAuthForms = (showRegister) => {
-            document.getElementById('login-form-div').style.display = showRegister ? 'none' : 'block';
-            document.getElementById('register-form-div').style.display = showRegister ? 'block' : 'none';
-        };
-
         window.addEventListener('load', () => {
             setTimeout(() => { document.getElementById('loader-screen').style.display = 'none'; }, 3000);
         });
@@ -439,7 +421,6 @@
                 if(dSnap.exists()) {
                     me = dSnap.data();
                     
-                    // Gmail Avatar Automatic Fetch fallback integration on verification confirmation
                     if(u.emailVerified && (!me.pic || me.pic === defaultAvtr || me.pic === "null")) {
                         const automaticGmailPic = `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80`;
                         me.pic = automaticGmailPic;
@@ -458,14 +439,13 @@
             }
         });
 
-        // Unique Custom Username Registration Method
+        // Username and Password Only Registration Method
         document.getElementById('customRegisterBtn').onclick = async () => {
             const usernameInput = document.getElementById('reg-username').value.toLowerCase().replace(/\s+/g,'').trim();
-            const emailInput = document.getElementById('reg-email').value.trim();
             const passInput = document.getElementById('reg-pass').value.trim();
 
-            if(!usernameInput || !emailInput || !passInput) {
-                alert("Please fill all registration fields!");
+            if(!usernameInput || !passInput) {
+                alert("Please fill all fields!");
                 return;
             }
 
@@ -478,7 +458,9 @@
                     return;
                 }
 
-                const userCredential = await createUserWithEmailAndPassword(auth, emailInput, passInput);
+                // Generates virtual email background handle safely matching Firebase requirement
+                const generatedEmail = usernameInput + "@thejaya.com";
+                const userCredential = await createUserWithEmailAndPassword(auth, generatedEmail, passInput);
                 const u = userCredential.user;
                 
                 await setDoc(doc(db, "users", u.uid), { 
@@ -492,36 +474,7 @@
                 location.reload();
 
             } catch (error) {
-                alert("Registration Error: " + error.message);
-            }
-        };
-
-        // Custom Email Login Action Method
-        document.getElementById('customLoginBtn').onclick = async () => {
-            const emailInput = document.getElementById('login-email').value.trim();
-            const passInput = document.getElementById('login-pass').value.trim();
-
-            if(!emailInput || !passInput) {
-                alert("Please fill all login fields!");
-                return;
-            }
-
-            try {
-                await signInWithEmailAndPassword(auth, emailInput, passInput);
-            } catch (error) {
-                alert("Login Error: " + error.message);
-            }
-        };
-
-        // Dispatch verification link
-        document.getElementById('sendVerifyEmailBtn').onclick = async () => {
-            if(auth.currentUser) {
-                try {
-                    await sendEmailVerification(auth.currentUser);
-                    alert("Verification link sent! Check your inbox, verify and refresh.");
-                } catch (err) {
-                    alert("Error: " + err.message);
-                }
+                alert("Error creating account: " + error.message);
             }
         };
 
@@ -534,7 +487,7 @@
 
         window.requireLogin = (cb) => {
             if(!auth.currentUser) {
-                alert("Please login first!");
+                alert("Please create an account first!");
                 document.getElementById('main-app').style.display = 'none';
                 document.getElementById('auth-section').style.display = 'block';
             } else cb();
