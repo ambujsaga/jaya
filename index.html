@@ -199,7 +199,38 @@
         .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 25px 0; }
         .stats-card { background: rgba(0, 229, 255, 0.05); padding: 15px; border-radius: 18px; border: 1px solid var(--primary); text-align: center; }
         .stat-val { display: block; font-size: 28px; font-weight: 800; color: var(--primary); }
-        #search-row { display: none; padding: 15px; background: var(--card-bg); border-bottom: 1px solid var(--primary); }
+        
+        /* --- UPDATED SEARCH BAR CONTAINER & DROPDOWN --- */
+        #search-row { display: none; padding: 15px; background: var(--card-bg); border-bottom: 1px solid var(--primary); position: relative; }
+        .search-wrapper { position: relative; width: 100%; display: flex; flex-direction: column; }
+        .search-input-group { display: flex; gap: 10px; width: 100%; }
+        .search-suggestions { 
+            position: absolute; 
+            top: 52px; 
+            left: 0; 
+            width: calc(100% - 60px); 
+            background: rgba(6, 17, 39, 0.98); 
+            border: 1px solid var(--primary); 
+            border-radius: 12px; 
+            max-height: 220px; 
+            overflow-y: auto; 
+            z-index: 5000; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5); 
+            display: none;
+            backdrop-filter: blur(10px);
+        }
+        .suggestion-item { 
+            display: flex; 
+            align-items: center; 
+            gap: 12px; 
+            padding: 10px 15px; 
+            cursor: pointer; 
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            transition: background 0.2s;
+        }
+        .suggestion-item:hover { background: rgba(0, 229, 255, 0.15); }
+        .suggestion-item img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 1px solid var(--primary); }
+        .suggestion-item span { color: var(--text-main); font-weight: 600; font-size: 14px; }
 
         .theme-toggle {
             background: rgba(255,255,255,0.1);
@@ -475,9 +506,12 @@
         </header>
 
         <div id="search-row">
-            <div style="display:flex; gap:10px;">
-                <input type="text" id="sq" placeholder="Search @username...">
-                <button onclick="findUser()" class="btn-primary" style="width: auto;">Go</button>
+            <div class="search-wrapper">
+                <div class="search-input-group">
+                    <input type="text" id="sq" placeholder="Search @username..." autocomplete="off">
+                    <button onclick="findUser()" class="btn-primary" style="width: auto;">Go</button>
+                </div>
+                <div id="search-suggestions-box" class="search-suggestions"></div>
             </div>
         </div>
 
@@ -1106,7 +1140,21 @@
         };
 
         window.delPost = async (id) => { if(confirm("Delete this post?")) await deleteDoc(doc(db, "posts", id)); };
-        window.toggleSearch = () => { const r = document.getElementById('search-row'); r.style.display = r.style.display === 'block'?'none':'block'; };
+        
+        // --- UPDATED TOGGLE SEARCH METHOD TO HIDE DROPDOWN ON TOGGLE ---
+        window.toggleSearch = () => { 
+            const r = document.getElementById('search-row'); 
+            const box = document.getElementById('search-suggestions-box');
+            if(r.style.display === 'block') {
+                r.style.display = 'none';
+                box.style.display = 'none';
+                box.innerHTML = '';
+            } else {
+                r.style.display = 'block';
+                document.getElementById('sq').focus();
+            }
+        };
+
         window.toggleComs = (id) => { const d = document.getElementById('drawer-'+id); d.style.display = d.style.display === 'block'?'none':'block'; };
         window.setPostModal = (s) => document.getElementById('post-modal').style.display = s?'flex':'none';
         
@@ -1153,6 +1201,74 @@
         postInput.addEventListener('input', updateWordCount);
         postInput.addEventListener('keyup', updateWordCount);
         postInput.addEventListener('change', updateWordCount);
+
+        // --- NEW REALTIME SEARCH SUGGESTIONS FEATURE ENGINE ---
+        const searchInput = document.getElementById('sq');
+        const suggestionsBox = document.getElementById('search-suggestions-box');
+
+        searchInput.addEventListener('input', async () => {
+            let val = searchInput.value.toLowerCase().replace(/\s+/g, '').trim();
+            
+            // Checking alphanumeric ranges (a-z, 0-9)
+            if(!val || val.length === 0) {
+                suggestionsBox.style.display = 'none';
+                suggestionsBox.innerHTML = '';
+                return;
+            }
+
+            try {
+                // Firestore Prefix Matching Strategy (\uf8ff handles alphabetical bounds seamlessly)
+                const q = query(
+                    collection(db, "users"), 
+                    orderBy("username"), 
+                    where("username", ">=", val), 
+                    where("username", "<=", val + "\uf8ff")
+                );
+                
+                const snap = await getDocs(q);
+                
+                if(snap.empty) {
+                    suggestionsBox.style.display = 'none';
+                    suggestionsBox.innerHTML = '';
+                    return;
+                }
+
+                suggestionsBox.innerHTML = '';
+                suggestionsBox.style.display = 'block';
+
+                snap.forEach(docSnap => {
+                    const uData = docSnap.data();
+                    const uPic = (uData.pic && uData.pic !== "" && uData.pic !== "null") ? uData.pic : defaultAvtr;
+                    
+                    const item = document.createElement('div');
+                    item.className = 'suggestion-item';
+                    item.innerHTML = `
+                        <img src="${uPic}" onerror="this.src='${defaultAvtr}'">
+                        <span>@${uData.username}</span>
+                    `;
+                    
+                    // Click on suggestion to navigate directly using the existing method
+                    item.addEventListener('click', () => {
+                        searchInput.value = uData.username;
+                        suggestionsBox.style.display = 'none';
+                        suggestionsBox.innerHTML = '';
+                        navTo('profile', false, uData);
+                    });
+
+                    suggestionsBox.appendChild(item);
+                });
+
+            } catch (err) {
+                console.error("Suggestion engine error: ", err);
+            }
+        });
+
+        // Hides suggestion popup if clicked outside
+        document.addEventListener('click', (e) => {
+            if (e.target !== searchInput && e.target !== suggestionsBox) {
+                suggestionsBox.style.display = 'none';
+            }
+        });
     </script>
 </body>
 </html>
