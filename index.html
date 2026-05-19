@@ -820,13 +820,41 @@
             onSnapshot(q, (s) => {
                 const div = document.getElementById(divId); div.innerHTML = "";
                 let stars = 0, posts = 0;
+                
+                let postArray = [];
+                const nineDaysInMs = 9 * 24 * 60 * 60 * 1000;
+                const currentTime = Date.now();
+
                 s.forEach(d => {
                     const p = d.data();
-                    if(uid) { stars += (p.stars?.length || 0); posts++; }
+                    const pId = d.id;
+                    
+                    if(uid) { 
+                        stars += (p.stars?.length || 0); 
+                        posts++; 
+                        postArray.push({ id: pId, data: p });
+                    } else {
+                        // Agar Main Feed hai toh sirf 9 din ke andar wale posts show honge
+                        if (currentTime - p.time <= nineDaysInMs) {
+                            postArray.push({ id: pId, data: p });
+                        }
+                    }
+                });
+
+                // Agar Main Feed hai toh content ko mix/random shuffle karega up and down order me
+                if (!uid) {
+                    for (let i = postArray.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [postArray[i], postArray[j]] = [postArray[j], postArray[i]];
+                    }
+                }
+
+                postArray.forEach(item => {
+                    const p = item.data;
+                    const dId = item.id;
                     
                     const userPic = (p.pic && p.pic !== "" && p.pic !== "null") ? p.pic : defaultAvtr;
                     const isStarred = auth.currentUser ? p.stars?.includes(auth.currentUser.uid) : false;
-                    
                     const isEditable = (auth.currentUser && auth.currentUser.uid === p.uid && (Date.now() - p.time < 3600000));
                     
                     let linksHtml = '';
@@ -848,32 +876,32 @@
                                 <span class="post-time">${timeAgo(p.time)} ${p.edited ? '<b style="color:var(--primary); font-size:10px; margin-left:5px;">(Edited)</b>' : ''}</span>
                             </div>
                             <div style="margin-left:auto; display:flex; gap:12px; align-items:center;">
-                                ${isEditable ? `<div onclick="editPost('${d.id}', '${p.text.replace(/'/g, "\\'")}')" style="cursor:pointer;">${iconEdit}</div>` : ''}
-                                ${(auth.currentUser && auth.currentUser.uid === p.uid) ? `<div onclick="delPost('${d.id}')" style="cursor:pointer;">${iconDelete}</div>` : ''}
+                                ${isEditable ? `<div onclick="editPost('${dId}', '${p.text.replace(/'/g, "\\'")}')" style="cursor:pointer;">${iconEdit}</div>` : ''}
+                                ${(auth.currentUser && auth.currentUser.uid === p.uid) ? `<div onclick="delPost('${dId}')" style="cursor:pointer;">${iconDelete}</div>` : ''}
                             </div>
                         </div>
                         <p style="margin: 0; line-height:1.5;">${p.text}</p>
                         ${linksHtml}
                         <div class="action-bar">
-                            <span class="action-btn" onclick="starIt('${d.id}', ${isStarred})" style="color:${isStarred?'var(--star)':''}">
+                            <span class="action-btn" onclick="starIt('${dId}', ${isStarred})" style="color:${isStarred?'var(--star)':''}">
                                 ${iconStar} ${p.stars?.length || 0}
                             </span>
-                            <span class="action-btn" onclick="requireLogin(() => toggleComs('${d.id}'))">
+                            <span class="action-btn" onclick="requireLogin(() => toggleComs('${dId}'))">
                                 ${iconComment} ${p.comments?.length || 0}
                             </span>
                             <span class="action-btn" onclick="sharePost('${p.text.replace(/'/g, "\\'")}', '${p.username || 'user'}')">
                                 ${iconShare} Share
                             </span>
                         </div>
-                        <div id="drawer-${d.id}" class="comment-drawer">
-                            <div id="list-${d.id}">${(p.comments || []).map((c, i) => `
+                        <div id="drawer-${dId}" class="comment-drawer">
+                            <div id="list-${dId}">${(p.comments || []).map((c, i) => `
                                 <div style="margin-bottom:8px; font-size:13px; display:flex; justify-content:space-between; align-items:center;">
                                     <span><b style="color:var(--primary)">@${c.user || 'user'}</b>: ${c.msg}</span>
-                                    ${(auth.currentUser && (auth.currentUser.uid === c.uid || auth.currentUser.uid === p.uid)) ? `<div onclick="delCom('${d.id}', ${i})" style="cursor:pointer;">${iconDelete}</div>` : ''}
+                                    ${(auth.currentUser && (auth.currentUser.uid === c.uid || auth.currentUser.uid === p.uid)) ? `<div onclick="delCom('${dId}', ${i})" style="cursor:pointer;">${iconDelete}</div>` : ''}
                                 </div>`).join('')}</div>
                             <div style="display:flex; gap:8px; margin-top:15px;">
-                                <input id="in-${d.id}" placeholder="Reply...">
-                                <button onclick="addCom('${d.id}')" class="btn-primary" style="width:auto;">Send</button>
+                                <input id="in-${dId}" placeholder="Reply...">
+                                <button onclick="addCom('${dId}')" class="btn-primary" style="width:auto;">Send</button>
                             </div>
                         </div>
                     `;
