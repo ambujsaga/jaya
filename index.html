@@ -9,18 +9,44 @@
     <link rel="manifest" href="manifest.json">
 
      <style>
-        /* --- DESKTOP OPTIMIZATION --- */
+        /* --- DESKTOP OPTIMIZATION (UPDATED FOR COOL DESKTOP VIEW) --- */
         @media (min-width: 768px) {
-            .container { max-width: 700px; margin: 30px auto; }
-            header { padding: 15px 10%; }
+            .container { 
+                max-width: 650px !important; 
+                margin: 40px auto !important; 
+                padding: 0 15px;
+            }
+            header { 
+                padding: 15px 15% !important; 
+                box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+            }
             .logo { font-size: 28px; }
-            .card { padding: 25px; border-radius: 24px; transition: transform 0.2s ease; }
-            .card:hover { border-color: var(--primary); }
+            
+            /* Enhanced modern look for desktop cards */
+            .card { 
+                padding: 25px !important; 
+                border-radius: 24px !important; 
+                transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s ease, box-shadow 0.25s ease !important; 
+                background: linear-gradient(145deg, rgba(8, 22, 51, 0.8), rgba(4, 13, 31, 0.85)) !important;
+                border: 1px solid rgba(0, 229, 255, 0.15) !important;
+            }
+            .card:hover { 
+                border-color: var(--primary) !important; 
+                transform: translateY(-3px);
+                box-shadow: 0 8px 25px rgba(0, 229, 255, 0.15), 0 5px 15px rgba(0,0,0,0.4) !important;
+            }
             input, textarea { font-size: 16px; }
-            .fab { right: 50px; bottom: 50px; width: 70px; height: 70px; }
+            .fab { right: 10% !important; bottom: 50px !important; width: 70px !important; height: 70px !important; }
+            .bits-btn { right: 10.5% !important; bottom: 135px !important; width: 50px !important; height: 50px !important; }
+            .more-btn { left: 10% !important; bottom: 50px !important; width: 50px !important; height: 50px !important; }
             .p-pic { width: 50px; height: 50px; }
-            .stats-grid { grid-template-columns: 1fr 1fr 1fr 1fr; gap: 20px; }
-            #post-modal .container { max-width: 600px; }
+            .stats-grid { grid-template-columns: 1fr 1fr; gap: 20px; }
+            #post-modal .container { max-width: 500px; }
+            
+            /* Centering row modifications */
+            #search-row {
+                padding: 15px 15% !important;
+            }
         }
 
         ::-webkit-scrollbar { width: 8px; }
@@ -1220,7 +1246,7 @@
             i.value = "";
         };
 
-        window.delCom = async (pid, idx) => {
+        window.getCom = async (pid, idx) => {
             const r = doc(db, "posts", pid); const s = await getDoc(r);
             let c = s.data().comments; c.splice(idx, 1);
             await updateDoc(r, { comments: c });
