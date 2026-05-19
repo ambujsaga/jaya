@@ -591,6 +591,10 @@
         const googleProvider = new GoogleAuthProvider();
         let me = null;
 
+        // Shuffle state tracking variables
+        let feedShuffleOrder = null; 
+        let lastFetchedPostIds = "";
+
         window.addEventListener('load', () => {
             setTimeout(() => { document.getElementById('loader-screen').style.display = 'none'; }, 3000);
         });
@@ -813,6 +817,15 @@
             }
         };
 
+        // Fisher-Yates Shuffle Algorithm
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
         function loadFeed(divId, uid) {
             let q = uid ? query(collection(db, "posts"), where("uid", "==", uid), orderBy("time", "desc")) 
                         : query(collection(db, "posts"), orderBy("time", "desc"));
@@ -821,38 +834,68 @@
                 const div = document.getElementById(divId); div.innerHTML = "";
                 let stars = 0, posts = 0;
                 
-                let postArray = [];
-                const nineDaysInMs = 9 * 24 * 60 * 60 * 1000;
-                const currentTime = Date.now();
+                let rawPosts = [];
+                let currentSnapshotIds = "";
 
                 s.forEach(d => {
-                    const p = d.data();
-                    const pId = d.id;
-                    
-                    if(uid) { 
-                        stars += (p.stars?.length || 0); 
-                        posts++; 
-                        postArray.push({ id: pId, data: p });
-                    } else {
-                        // Agar Main Feed hai toh sirf 9 din ke andar wale posts show honge
-                        if (currentTime - p.time <= nineDaysInMs) {
-                            postArray.push({ id: pId, data: p });
-                        }
-                    }
+                    const postData = d.data();
+                    rawPosts.push({ id: d.id, ...postData });
+                    currentSnapshotIds += d.id + ",";
                 });
 
-                // Agar Main Feed hai toh content ko mix/random shuffle karega up and down order me
-                if (!uid) {
-                    for (let i = postArray.length - 1; i > 0; i--) {
-                        const j = Math.floor(Math.random() * (i + 1));
-                        [postArray[i], postArray[j]] = [postArray[j], postArray[i]];
+                let finalPostsToRender = [];
+
+                if (uid) {
+                    // Profile Feed: Isme koi shuffling aur expiration ka rule nahi lagega
+                    finalPostsToRender = rawPosts;
+                    rawPosts.forEach(p => {
+                        stars += (p.stars?.length || 0);
+                        posts++;
+                    });
+                } else {
+                    // Home Feed: 14 Days Filter Rule (14 days = 1209600000 ms)
+                    const fourteenDaysAgo = Date.now() - 1209600000;
+                    let activeFeedPosts = rawPosts.filter(p => p.time >= fourteenDaysAgo);
+
+                    // Separate Sticky Posts (Jo pichle 15 minute ke andar bani hain)
+                    const fifteenMinsAgo = Date.now() - 900000; // 15 mins = 900000 ms
+                    let stickyPosts = activeFeedPosts.filter(p => p.time >= fifteenMinsAgo);
+                    let poolToShuffle = activeFeedPosts.filter(p => p.time < fifteenMinsAgo);
+
+                    // Pehli baar load hone par ya koi post add/delete hone par hi static structure match karega
+                    if (feedShuffleOrder === null || currentSnapshotIds !== lastFetchedPostIds) {
+                        lastFetchedPostIds = currentSnapshotIds;
+                        
+                        // Remaining posts pool ko fully shuffle karna
+                        poolToShuffle = shuffleArray(poolToShuffle);
+                        
+                        // New shuffled order array ko memory state me lock karke save karna
+                        feedShuffleOrder = poolToShuffle.map(p => p.id);
+                    } else {
+                        // Agar user like/comment trigger kar raha hai toh memory state se order match karwana
+                        let mapOrder = {};
+                        poolToShuffle.forEach(p => { mapOrder[p.id] = p; });
+                        
+                        let reorderedPool = [];
+                        feedShuffleOrder.forEach(savedId => {
+                            if (mapOrder[savedId]) {
+                                reorderedPool.push(mapOrder[savedId]);
+                                delete mapOrder[savedId];
+                            }
+                        });
+                        // Agar realtime check me koi miss ho gaya ho toh use safe wrapper de dena
+                        Object.values(mapOrder).forEach(leftOver => {
+                            reorderedPool.push(leftOver);
+                        });
+                        poolToShuffle = reorderedPool;
                     }
+
+                    // Strict Order Setup: Sticky Posts top par ordered rahengi, uske baad shuffled array append hoga
+                    finalPostsToRender = [...stickyPosts, ...poolToShuffle];
                 }
 
-                postArray.forEach(item => {
-                    const p = item.data;
-                    const dId = item.id;
-                    
+                // Render execution stack
+                finalPostsToRender.forEach(p => {
                     const userPic = (p.pic && p.pic !== "" && p.pic !== "null") ? p.pic : defaultAvtr;
                     const isStarred = auth.currentUser ? p.stars?.includes(auth.currentUser.uid) : false;
                     const isEditable = (auth.currentUser && auth.currentUser.uid === p.uid && (Date.now() - p.time < 3600000));
@@ -876,32 +919,32 @@
                                 <span class="post-time">${timeAgo(p.time)} ${p.edited ? '<b style="color:var(--primary); font-size:10px; margin-left:5px;">(Edited)</b>' : ''}</span>
                             </div>
                             <div style="margin-left:auto; display:flex; gap:12px; align-items:center;">
-                                ${isEditable ? `<div onclick="editPost('${dId}', '${p.text.replace(/'/g, "\\'")}')" style="cursor:pointer;">${iconEdit}</div>` : ''}
-                                ${(auth.currentUser && auth.currentUser.uid === p.uid) ? `<div onclick="delPost('${dId}')" style="cursor:pointer;">${iconDelete}</div>` : ''}
+                                ${isEditable ? `<div onclick="editPost('${p.id}', '${p.text.replace(/'/g, "\\'")}')" style="cursor:pointer;">${iconEdit}</div>` : ''}
+                                ${(auth.currentUser && auth.currentUser.uid === p.uid) ? `<div onclick="delPost('${p.id}')" style="cursor:pointer;">${iconDelete}</div>` : ''}
                             </div>
                         </div>
                         <p style="margin: 0; line-height:1.5;">${p.text}</p>
                         ${linksHtml}
                         <div class="action-bar">
-                            <span class="action-btn" onclick="starIt('${dId}', ${isStarred})" style="color:${isStarred?'var(--star)':''}">
+                            <span class="action-btn" onclick="starIt('${p.id}', ${isStarred})" style="color:${isStarred?'var(--star)':''}">
                                 ${iconStar} ${p.stars?.length || 0}
                             </span>
-                            <span class="action-btn" onclick="requireLogin(() => toggleComs('${dId}'))">
+                            <span class="action-btn" onclick="requireLogin(() => toggleComs('${p.id}'))">
                                 ${iconComment} ${p.comments?.length || 0}
                             </span>
                             <span class="action-btn" onclick="sharePost('${p.text.replace(/'/g, "\\'")}', '${p.username || 'user'}')">
                                 ${iconShare} Share
                             </span>
                         </div>
-                        <div id="drawer-${dId}" class="comment-drawer">
-                            <div id="list-${dId}">${(p.comments || []).map((c, i) => `
+                        <div id="drawer-${p.id}" class="comment-drawer">
+                            <div id="list-${p.id}">${(p.comments || []).map((c, i) => `
                                 <div style="margin-bottom:8px; font-size:13px; display:flex; justify-content:space-between; align-items:center;">
                                     <span><b style="color:var(--primary)">@${c.user || 'user'}</b>: ${c.msg}</span>
-                                    ${(auth.currentUser && (auth.currentUser.uid === c.uid || auth.currentUser.uid === p.uid)) ? `<div onclick="delCom('${dId}', ${i})" style="cursor:pointer;">${iconDelete}</div>` : ''}
+                                    ${(auth.currentUser && (auth.currentUser.uid === c.uid || auth.currentUser.uid === p.uid)) ? `<div onclick="delCom('${p.id}', ${i})" style="cursor:pointer;">${iconDelete}</div>` : ''}
                                 </div>`).join('')}</div>
                             <div style="display:flex; gap:8px; margin-top:15px;">
-                                <input id="in-${dId}" placeholder="Reply...">
-                                <button onclick="addCom('${dId}')" class="btn-primary" style="width:auto;">Send</button>
+                                <input id="in-${p.id}" placeholder="Reply...">
+                                <button onclick="addCom('${p.id}')" class="btn-primary" style="width:auto;">Send</button>
                             </div>
                         </div>
                     `;
