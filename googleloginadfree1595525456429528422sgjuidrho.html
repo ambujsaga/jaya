@@ -36,7 +36,7 @@
             --star: #ffd700; 
             --red: #ff4444; 
             --neon-shadow: 0 0 15px rgba(0, 229, 255, 0.6);
-            --gold-glow: 0 0 20px rgba(255, 215, 0, 0.5);
+            --special-neon: 0 0 20px rgba(255, 215, 0, 0.7);
         }
 
         body.light-mode {
@@ -46,7 +46,7 @@
             --text-muted: #65676b;
             --primary: #008ad3;
             --neon-shadow: 0 4px 12px rgba(0, 138, 211, 0.2);
-            --gold-glow: 0 4px 12px rgba(212, 175, 55, 0.3);
+            --special-neon: 0 4px 15px rgba(212, 175, 55, 0.4);
         }
 
         body { 
@@ -446,20 +446,18 @@
             }
         }
 
-        /* --- SPECIAL WELCOME STYLE FOR NEW USERS --- */
-        .welcome-tracker {
-            background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(0, 229, 255, 0.15));
-            border: 2px dashed var(--primary);
-            box-shadow: var(--gold-glow);
-            border-radius: 18px;
-            padding: 15px;
-            margin-bottom: 20px;
+        /* --- NEW USER WELCOME NOTIFICATION BADGE --- */
+        .welcome-badge {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(0, 229, 255, 0.1));
+            border: 1px dashed var(--star);
+            padding: 12px;
+            border-radius: 16px;
+            margin-bottom: 15px;
             text-align: center;
-            animation: pulseGlow 2.5s ease-in-out infinite;
-        }
-        @keyframes pulseGlow {
-            0%, 100% { box-shadow: var(--gold-glow); }
-            50% { box-shadow: 0 0 30px rgba(0, 229, 255, 0.4); }
+            font-size: 13px;
+            color: var(--text-main);
+            box-shadow: var(--special-neon);
+            animation: modalSlideUp 0.4s ease;
         }
     </style>
 </head>
@@ -534,8 +532,8 @@
         </div>
 
         <div class="container">
-            <div id="welcome-banner-zone"></div>
-
+            <div id="welcome-banner-space"></div>
+            
             <div id="home-view"><div id="feed"></div></div>
             <div id="profile-view" style="display:none;" class="card">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -603,8 +601,8 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, deleteDoc, getDoc, setDoc, where, getDocs, arrayRemove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, deleteDoc, getDoc, setDoc, where, getDocs, arrayRemove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, deleteDoc, getDoc, setDoc, where, getDocs, arrayRemove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js" /* Added for security verification but Firestore link will run standalone */;
+        import { getFirestore as initializeFirestore, collection as cRef } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const defaultAvtr = "https://cdn-icons-png.flaticon.com/512/149/149071.png";
 
@@ -642,13 +640,55 @@
         
         const app = initializeApp(conf);
         const auth = getAuth(app);
-        const db = getFirestore(app);
+        const db = initializeFirestore(app);
         const googleProvider = new GoogleAuthProvider();
         let me = null;
 
         // Shuffle state tracking variables
         let feedShuffleOrder = null; 
         let lastFetchedPostIds = "";
+
+        // --- NEW USER LOCALSTORAGE TRACKING ENGINE ---
+        function checkAndInitNewUser(uid) {
+            const storageKey = `jaya_posts_count_${uid}`;
+            if (localStorage.getItem(storageKey) === null) {
+                localStorage.setItem(storageKey, "0");
+            }
+            updateWelcomeBanner();
+        }
+
+        function getPostCount() {
+            if (!auth.currentUser) return 4; 
+            return parseInt(localStorage.getItem(`jaya_posts_count_${auth.currentUser.uid}`) || "0");
+        }
+
+        function incrementPostCount() {
+            if (!auth.currentUser) return;
+            const currentCount = getPostCount();
+            if (currentCount < 3) {
+                localStorage.setItem(`jaya_posts_count_${auth.currentUser.uid}`, (currentCount + 1).toString());
+                updateWelcomeBanner();
+            }
+        }
+
+        function updateWelcomeBanner() {
+            const bannerSpace = document.getElementById('welcome-banner-space');
+            if (!auth.currentUser) {
+                bannerSpace.innerHTML = "";
+                return;
+            }
+            const count = getPostCount();
+            if (count < 3) {
+                bannerSpace.innerHTML = `
+                    <div class="welcome-badge">
+                        <strong>Welcome to The Jaya, @${me ? me.username : 'creator'}! ✨</strong><br>
+                        <span style="font-size:11px; opacity:0.9;">You are on Special Status Mode! (${3 - count} early onboarding posts remaining)</span>
+                    </div>
+                `;
+            } else {
+                bannerSpace.innerHTML = "";
+            }
+        }
 
         window.addEventListener('load', () => {
             setTimeout(() => { document.getElementById('loader-screen').style.display = 'none'; }, 3000);
@@ -686,63 +726,6 @@
             return text.match(LINK_REGEX) || [];
         }
 
-        // --- NEW USER ENGINE UTILITIES ---
-        function initNewUserSystem(uid, isBrandNew = false) {
-            const storageKey = `jaya_posts_count_${uid}`;
-            const alertKey = `jaya_welcome_alert_${uid}`;
-            
-            if (isBrandNew) {
-                localStorage.setItem(storageKey, "0");
-            } else if (localStorage.getItem(storageKey) === null) {
-                localStorage.setItem(storageKey, "4"); // Existing user fallback to bypass tracker smoothly
-            }
-
-            const currentCount = parseInt(localStorage.getItem(storageKey) || "4");
-            
-            if (currentCount < 3) {
-                if (!localStorage.getItem(alertKey)) {
-                    alert("✨ Welcome to The Jaya! Premium layout activated for your first 3 posts. Let's create something awesome! 🚀");
-                    localStorage.setItem(alertKey, "true");
-                }
-                renderWelcomeTracker(currentCount);
-            } else {
-                document.getElementById('welcome-banner-zone').innerHTML = '';
-            }
-        }
-
-        function renderWelcomeTracker(count) {
-            const zone = document.getElementById('welcome-banner-zone');
-            const messages = [
-                "Welcome Champ! Drop your very first post to light up the feed! 🔥",
-                "Fantastic start! Share your 2nd post to show your vibe! ⚡",
-                "Just one more special post left to unlock full standard access! 🌟"
-            ];
-            
-            zone.innerHTML = `
-                <div class="welcome-tracker">
-                    <h3 style="margin: 0 0 5px 0; color: var(--primary); font-size: 16px; text-shadow: var(--neon-shadow);">✨ Special New User Mode (${count}/3 Posts)</h3>
-                    <p style="margin: 0; font-size: 13px; color: var(--text-main); font-weight: 500;">${messages[count] || messages[0]}</p>
-                </div>
-            `;
-        }
-
-        function trackUserPosting() {
-            if (!auth.currentUser) return;
-            const storageKey = `jaya_posts_count_${auth.currentUser.uid}`;
-            let currentCount = parseInt(localStorage.getItem(storageKey) || "4");
-            
-            if (currentCount < 3) {
-                currentCount++;
-                localStorage.setItem(storageKey, currentCount.toString());
-                if (currentCount >= 3) {
-                    alert("🎉 Incredible! You've successfully finished the special starter guide. Enjoy the standard feed timeline!");
-                    document.getElementById('welcome-banner-zone').innerHTML = '';
-                } else {
-                    renderWelcomeTracker(currentCount);
-                }
-            }
-        }
-
         onAuthStateChanged(auth, async (u) => {
             if(u) {
                 const dSnap = await getDoc(doc(db, "users", u.uid));
@@ -754,9 +737,11 @@
                         await updateDoc(doc(db, "users", u.uid), { pic: u.photoURL });
                     }
 
+                    // Onboarding validation trigger
+                    checkAndInitNewUser(u.uid);
+
                     document.getElementById('main-app').style.display = 'block';
                     document.getElementById('auth-section').style.display = 'none';
-                    initNewUserSystem(u.uid, false);
                     navTo('home');
                 } else {
                     const generatedUsername = u.email ? u.email.split('@')[0] : "user" + Math.floor(Math.random() * 1000);
@@ -768,13 +753,12 @@
                         email: u.email || "",
                         lastChange: Date.now() 
                     });
-                    initNewUserSystem(u.uid, true);
                     location.reload();
                 }
             } else {
                 document.getElementById('auth-section').style.display = 'block';
                 document.getElementById('main-app').style.display = 'none';
-                document.getElementById('welcome-banner-zone').innerHTML = '';
+                document.getElementById('welcome-banner-space').innerHTML = "";
             }
         });
 
@@ -813,8 +797,7 @@
 
             if(mode === 'login') {
                 try {
-                    const cred = await signInWithEmailAndPassword(auth, pseudoEmail, pass);
-                    initNewUserSystem(cred.user.uid, false);
+                    await signInWithEmailAndPassword(auth, pseudoEmail, pass);
                 } catch (err) {
                     if(err.code === "auth/wrong-password" || err.code === "auth/invalid-credential" || err.code === "auth/user-not-found") {
                         alert("Invalid Username or Password!");
@@ -838,7 +821,6 @@
                         email: pseudoEmail,
                         lastChange: Date.now()
                     });
-                    initNewUserSystem(cred.user.uid, true);
                     alert("Account Created successfully!");
                     location.reload();
                 } catch (err) {
@@ -873,13 +855,11 @@
                         email: user.email,
                         lastChange: Date.now()
                     });
-                    initNewUserSystem(user.uid, true);
                 } else {
                     await updateDoc(doc(db, "users", user.uid), {
                         pic: user.photoURL || defaultAvtr,
                         email: user.email
                     });
-                    initNewUserSystem(user.uid, false);
                 }
             } catch (err) {
                 alert("Google Sign-In Error: " + err.message);
@@ -889,7 +869,7 @@
         window.showGuestFeed = () => {
             document.getElementById('auth-section').style.display = 'none';
             document.getElementById('main-app').style.display = 'block';
-            document.getElementById('welcome-banner-zone').innerHTML = '';
+            document.getElementById('welcome-banner-space').innerHTML = "";
             loadFeed("feed", null);
         };
         document.getElementById('guest-trigger').onclick = showGuestFeed;
@@ -908,14 +888,7 @@
             
             if(auth.currentUser) {
                 document.getElementById('head-pic').src = (me && me.pic) ? me.pic : defaultAvtr;
-                // Re-evaluate visibility state safely when home navigations switch
-                if (v === 'home') {
-                    const storageKey = `jaya_posts_count_${auth.currentUser.uid}`;
-                    const currentCount = parseInt(localStorage.getItem(storageKey) || "4");
-                    if (currentCount < 3) renderWelcomeTracker(currentCount);
-                } else {
-                    document.getElementById('welcome-banner-zone').innerHTML = '';
-                }
+                updateWelcomeBanner();
             }
 
             if(v === 'home') loadFeed("feed", null);
@@ -1037,14 +1010,19 @@
                         linksHtml += `</div>`;
                     }
 
+                    // Check if post belongs to a new user onboarding phase via custom check flag
+                    const isSpecialCreator = p.isNewCreatorPost === true;
+                    const cardStyle = isSpecialCreator ? `style="border: 1px dashed var(--star); box-shadow: var(--special-neon);"` : '';
+
                     const el = document.createElement('div');
                     el.className = 'card';
+                    if(isSpecialCreator) el.setAttribute('style', `border: 1px dashed var(--star); box-shadow: var(--special-neon);`);
                     el.innerHTML = `
                         <div style="display:flex; align-items:center; gap:12px; margin-bottom:15px;">
                             <img src="${userPic}" class="p-pic" onerror="this.src='${defaultAvtr}'">
                             <div class="user-info">
-                                <strong onclick="requireLogin(() => findUserByUname('${p.username}'))" style="cursor:pointer;">@${p.username || 'user'}</strong>
-                                <span class="post-time">${timeAgo(p.time)} ${p.edited ? '<b style="color:var(--primary); font-size:10px; margin-left:5px;">(Edited)</b>' : ''}</span>
+                                <strong onclick="requireLogin(() => findUserByUname('${p.username}'))" style="cursor:pointer;">@${p.username || 'user'} ${isSpecialCreator ? '✨' : ''}</strong>
+                                <span class="post-time">${timeAgo(p.time)} ${p.edited ? '<b style="color:var(--primary); font-size:10px; margin-left:5px;">(Edited)</b>' : ''} ${isSpecialCreator ? '<b style="color:var(--star); font-size:10px; margin-left:5px;">[New Creator]</b>' : ''}</span>
                             </div>
                             <div style="margin-left:auto; display:flex; gap:12px; align-items:center;">
                                 ${isEditable ? `<div onclick="editPost('${p.id}', '${p.text.replace(/'/g, "\\'")}')" style="cursor:pointer;">${iconEdit}</div>` : ''}
@@ -1060,7 +1038,7 @@
                             <span class="action-btn" onclick="requireLogin(() => toggleComs('${p.id}'))">
                                 ${iconComment} ${p.comments?.length || 0}
                             </span>
-                            <span class="action-btn" onclick="sharePost('${p.text.replace(/'/g, "\\'")}', '${p.username || 'user'}')">
+                            <span class="action-btn" onclick="sharePost('${p.text.replace(/'/g, "\\'")}', '${p.username || 'user'}', ${isSpecialCreator})">
                                 ${iconShare} Share
                             </span>
                         </div>
@@ -1152,6 +1130,10 @@
                 cleanedText = "Shared Links:";
             }
 
+            // Fetch dynamic status onboarding logic
+            const currentNewUserCount = getPostCount();
+            const isEligibleForSpecial = currentNewUserCount < 3;
+
             await addDoc(collection(db, "posts"), { 
                 text: cleanedText, 
                 links: detectedLinks,
@@ -1161,12 +1143,17 @@
                 stars: [], 
                 comments: [], 
                 time: Date.now(), 
-                edited: false 
+                edited: false,
+                isNewCreatorPost: isEligibleForSpecial
             });
+
+            // Trigger increment state
+            if(isEligibleForSpecial) {
+                incrementPostCount();
+            }
 
             document.getElementById('postInput').value = ""; 
             setPostModal(false);
-            trackUserPosting(); // Increments count state perfectly if new user
         };
 
         window.editPost = async (id, oldText) => {
@@ -1253,8 +1240,9 @@
         window.toggleComs = (id) => { const d = document.getElementById('drawer-'+id); d.style.display = d.style.display === 'block'?'none':'block'; };
         window.setPostModal = (s) => document.getElementById('post-modal').style.display = s?'flex':'none';
         
-        window.sharePost = async (text, username) => {
-            const shareText = `"${text}"\n\n~by @${username} on The Jaya\n\nCheckout here:`;
+        window.sharePost = async (text, username, isSpecialCreator = false) => {
+            const tag = isSpecialCreator ? "\n~ New Creator ✨" : "";
+            const shareText = `"${text}"\n\n~by @${username}${tag} on The Jaya\n\nCheckout here:`;
             const shareUrl = window.location.href;
             if (navigator.share) {
                 try { await navigator.share({ title: 'The Jaya Post', text: shareText, url: shareUrl }); } catch (err) {}
