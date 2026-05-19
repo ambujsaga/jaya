@@ -253,7 +253,7 @@
         }
         .suggestion-item:hover { background: rgba(0, 229, 255, 0.15); }
         .suggestion-item img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 1px solid var(--primary); }
-        .suggestion-item span { color: var(--text-main); font-weight: 600; font-size: 14px; }
+        .suggestion-item span { color: var(--text-main); font-weight: 600; font-size: 14px; display: flex; align-items: center; }
 
         .theme-toggle {
             background: rgba(255,255,255,0.1);
@@ -466,6 +466,39 @@
                 opacity: 0;
             }
         }
+
+        /* --- RED TICK CSS --- */
+        .red-tick-svg {
+            width: 18px;
+            height: 18px;
+            color: #ff4444;
+            margin-left: 5px;
+            vertical-align: middle;
+            filter: drop-shadow(0 0 5px rgba(255, 68, 68, 0.4));
+            display: inline-block;
+        }
+        
+        .tick-toggle-btn {
+            background: rgba(255, 68, 68, 0.1);
+            color: #ff4444;
+            border: 1px solid rgba(255, 68, 68, 0.3);
+            padding: 10px 15px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-sizing: border-box;
+        }
+        .tick-toggle-btn:hover {
+            background: #ff4444;
+            color: #fff;
+            box-shadow: 0 0 15px rgba(255, 68, 68, 0.4);
+        }
     </style>
 </head>
 <body>
@@ -553,8 +586,10 @@
                 </div>
                 <div style="text-align:center;">
                     <img id="u-img" style="width:110px; height:110px; border-radius:50%; border:3px solid var(--primary); object-fit:cover;">
-                    <h2 id="u-name" style="margin:15px 0;">@username</h2>
+                    <h2 id="u-name" style="margin:15px 0; display: flex; align-items: center; justify-content: center;">@username</h2>
                     
+                    <div id="red-tick-controls" style="margin-bottom: 15px;"></div>
+
                     <div id="verification-section" style="margin-bottom: 15px; display: none;">
                         <div class="verify-box">
                             <span id="verify-status-text">Account Connected Via Google</span>
@@ -657,6 +692,8 @@
         let feedShuffleOrder = null; 
         let lastFetchedPostIds = "";
 
+        const redTickSVG = `<svg viewBox="0 0 24 24" class="red-tick-svg" title="Verified"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
+
         window.addEventListener('load', () => {
             setTimeout(() => { document.getElementById('loader-screen').style.display = 'none'; }, 3000);
         });
@@ -744,7 +781,8 @@
                         pic: finalPhoto, 
                         email: u.email || "",
                         lastChange: Date.now(),
-                        postsMade: 0
+                        postsMade: 0,
+                        hasRedTick: false
                     });
                     location.reload();
                 }
@@ -812,7 +850,8 @@
                         pic: defaultAvtr,
                         email: pseudoEmail,
                         lastChange: Date.now(),
-                        postsMade: 0
+                        postsMade: 0,
+                        hasRedTick: false
                     });
                     alert("Account Created successfully!");
                     location.reload();
@@ -847,7 +886,8 @@
                         pic: user.photoURL || defaultAvtr,
                         email: user.email,
                         lastChange: Date.now(),
-                        postsMade: 0
+                        postsMade: 0,
+                        hasRedTick: false
                     });
                 } else {
                     await updateDoc(doc(db, "users", user.uid), {
@@ -890,7 +930,14 @@
             if(v === 'profile') {
                 const user = isMe ? me : other;
                 document.getElementById('u-img').src = (user.pic && user.pic !== "null") ? user.pic : defaultAvtr;
-                document.getElementById('u-name').innerText = "@" + (user.username || "user");
+                
+                // Show Name and Red Tick if active
+                const tickDisplay = user.hasRedTick ? redTickSVG : '';
+                document.getElementById('u-name').innerHTML = "@" + (user.username || "user") + tickDisplay;
+                
+                // Red Tick Toggle Controller (Button visually removed)
+                document.getElementById('red-tick-controls').innerHTML = '';
+
                 document.getElementById('my-controls').style.display = isMe ? 'block' : 'none';
                 
                 const verifySection = document.getElementById('verification-section');
@@ -910,6 +957,40 @@
                 }
 
                 loadFeed("u-feed", user.uid);
+            }
+        };
+
+        // --- NEW GLOBAL FUNCTION TO TOGGLE RED TICK ---
+        window.toggleRedTick = async (uid, currentStatus) => {
+            if(!auth.currentUser) return;
+            const newStatus = !currentStatus;
+            
+            try {
+                // Update users collection
+                await updateDoc(doc(db, "users", uid), { hasRedTick: newStatus });
+                
+                // Update all posts made by this user to reflect everywhere immediately
+                const q = query(collection(db, "posts"), where("uid", "==", uid));
+                const snap = await getDocs(q);
+                
+                const updatePromises = [];
+                snap.forEach((dSnap) => {
+                    updatePromises.push(updateDoc(doc(db, "posts", dSnap.id), { hasRedTick: newStatus }));
+                });
+                await Promise.all(updatePromises);
+
+                // Update Local Me object if needed
+                if (me && me.uid === uid) {
+                    me.hasRedTick = newStatus;
+                }
+                
+                // Reload profile view properly
+                const updatedUserSnap = await getDoc(doc(db, "users", uid));
+                if(updatedUserSnap.exists()) {
+                    navTo('profile', me && me.uid === uid, updatedUserSnap.data());
+                }
+            } catch(err) {
+                alert("Error modifying Red Tick: " + err.message);
             }
         };
 
@@ -1007,6 +1088,8 @@
 
                     // Check if post belongs to a new user onboarding stage (under 3 posts)
                     const isSpecialNewUserPost = p.isNewUserVibe === true;
+                    
+                    const postRedTick = p.hasRedTick ? redTickSVG : '';
 
                     const el = document.createElement('div');
                     el.className = isSpecialNewUserPost ? 'card special-welcome-card' : 'card';
@@ -1015,7 +1098,7 @@
                             <img src="${userPic}" class="p-pic" onerror="this.src='${defaultAvtr}'">
                             <div class="user-info">
                                 <div style="display:flex; align-items:center;">
-                                    <strong onclick="requireLogin(() => findUserByUname('${p.username}'))" style="cursor:pointer;">@${p.username || 'user'}</strong>
+                                    <strong onclick="requireLogin(() => findUserByUname('${p.username}'))" style="cursor:pointer; display:flex; align-items:center;">@${p.username || 'user'}${postRedTick}</strong>
                                     ${isSpecialNewUserPost ? `<span class="special-welcome-badge">.</span>` : ''}
                                 </div>
                                 <span class="post-time">${timeAgo(p.time)} ${p.edited ? '<b style="color:var(--primary); font-size:10px; margin-left:5px;">(Edited)</b>' : ''}</span>
@@ -1149,7 +1232,8 @@
                 comments: [], 
                 time: Date.now(), 
                 edited: false,
-                isNewUserVibe: isNewUserVibeActive
+                isNewUserVibe: isNewUserVibeActive,
+                hasRedTick: me.hasRedTick || false // Carry over Red Tick status to new posts
             };
 
             const createdPostRef = await addDoc(collection(db, "posts"), postDocData);
@@ -1338,11 +1422,13 @@
                     const uData = docSnap.data();
                     const uPic = (uData.pic && uData.pic !== "" && uData.pic !== "null") ? uData.pic : defaultAvtr;
                     
+                    const searchItemRedTick = uData.hasRedTick ? redTickSVG : '';
+
                     const item = document.createElement('div');
                     item.className = 'suggestion-item';
                     item.innerHTML = `
                         <img src="${uPic}" onerror="this.src='${defaultAvtr}'">
-                        <span>@${uData.username}</span>
+                        <span style="display:flex; align-items:center;">@${uData.username}${searchItemRedTick}</span>
                     `;
                     
                     // Click on suggestion to navigate directly using the existing method
