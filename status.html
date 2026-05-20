@@ -428,7 +428,6 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        // IMPORT FIRESTORE SYNC MODULES HERE
         import { getFirestore, doc, getDoc, collection, setDoc, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = { 
@@ -486,7 +485,13 @@
             }
 
             window.currentUserProfile = activeSessionUser;
-            window.setupRealtimeStories(); // INITIALIZE REALTIME SYNC
+            
+            // HYBRID LOGIC: Step 1 - Instant Load from LocalStorage
+            window.globalStories = JSON.parse(localStorage.getItem('thejaya_stories_db_live') || '[]');
+            window.renderStoriesTray();
+            
+            // HYBRID LOGIC: Step 2 - Initialize Cloud Sync to fetch latest changes
+            window.setupRealtimeStories(); 
         }
     </script>
 
@@ -501,14 +506,12 @@
         let currentSlideIndex = 0;
         let isViewerPaused = false;
         
-        // GLOBAL STATE FOR CLOUD STORIES
         window.globalStories = [];
 
-        // REAL-TIME LISTENER FUNCTION
+        // HYBRID REAL-TIME LISTENER
         window.setupRealtimeStories = function() {
             const storiesRef = window.collection(window.db, "status_stories");
             
-            // onSnapshot triggers instantly on all devices when data changes
             window.onSnapshot(storiesRef, (snapshot) => {
                 let liveDatabase = [];
                 snapshot.forEach((doc) => {
@@ -516,13 +519,14 @@
                 });
 
                 const now = Date.now();
-                // Filter out 24hr expired slides logic
                 liveDatabase.forEach(story => {
                     story.slides = story.slides.filter(slide => (now - slide.timestamp) < EXPIRATION_TIME);
                 });
                 
-                // Only keep users who have at least 1 active status
                 window.globalStories = liveDatabase.filter(story => story.slides.length > 0);
+                
+                // HYBRID LOGIC: Step 3 - Sync fetched live data back into LocalStorage for cache
+                localStorage.setItem('thejaya_stories_db_live', JSON.stringify(window.globalStories));
                 
                 window.renderStoriesTray();
             });
@@ -560,7 +564,6 @@
             });
         }
 
-        // UPLOAD LOGIC UPDATED TO CLOUD
         async function publishStatus() {
             if (!window.currentUserProfile) return;
 
@@ -573,9 +576,8 @@
                 return;
             }
 
-            // Optional Loading Alert for Heavy Base64 Files
             if(photoFiles.length > 0 || videoFiles.length > 0) {
-                document.querySelector('.btn-submit').innerText = "Uploading to Server...";
+                document.querySelector('.btn-submit').innerText = "Uploading Status...";
                 document.querySelector('.btn-submit').disabled = true;
             }
 
@@ -596,7 +598,6 @@
                 newSlides.push({ id: 's_'+now+'_v'+i, type: 'video', content: b64Data, duration: 25000, timestamp: now, viewedBy: [] });
             }
             
-            // Find if user already exists in global LIVE state
             const existingUserIndex = window.globalStories.findIndex(story => story.uid === window.currentUserProfile.uid);
             let storyDataToSave;
 
@@ -614,28 +615,26 @@
             }
 
             try {
-                // SAVE TO FIRESTORE DIRECTLY
+                // Upload directly to server. The onSnapshot listener will catch this instantly and update localStorage for everyone.
                 const userDocRef = window.doc(window.db, "status_stories", window.currentUserProfile.uid);
                 await window.setDoc(userDocRef, storyDataToSave);
 
-                // Reset UI
                 document.getElementById('status-text-input').value = "";
                 document.getElementById('photo-files').value = "";
                 document.getElementById('video-files').value = "";
                 document.getElementById('file-count-status').innerText = "";
                 toggleUploadUI();
 
-                alert("🚀 Status uploaded successfully to Live Server!");
+                alert("🚀 Status uploaded successfully!");
             } catch (error) {
                 console.error("Upload Error: ", error);
-                alert("❌ Upload failed. Max document size is 1MB. Try smaller files or contact developer.");
+                alert("❌ Upload failed. Please try again.");
             } finally {
                 document.querySelector('.btn-submit').innerText = "Upload Status";
                 document.querySelector('.btn-submit').disabled = false;
             }
         }
 
-        // RENDER FROM GLOBAL CLOUD STATE INSTEAD OF LOCALSTORAGE
         window.renderStoriesTray = function() {
             const tray = document.getElementById('stories-tray-zone');
             tray.innerHTML = "";
@@ -812,7 +811,6 @@
             isViewerPaused = false;
         }
 
-        // CLOUD DB SYNC FUNCTION FOR VIEWS AND DELETES
         async function syncToDatabase() {
             if(!currentViewingStory) return;
             
