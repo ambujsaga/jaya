@@ -85,11 +85,6 @@
             transition: background 0.3s ease;
         }
 
-        #loader-screen {
-            position: fixed; inset: 0; background: var(--bg);
-            display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999;
-        }
-
         header { 
             background: var(--card-bg); 
             backdrop-filter: blur(15px); 
@@ -694,8 +689,9 @@
 
         const redTickSVG = `<svg viewBox="0 0 24 24" class="red-tick-svg" title="Verified"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
 
+        // Optimized Loader Fix: Instantly hides after a tiny micro-delay instead of freezing for 3 seconds
         window.addEventListener('load', () => {
-            setTimeout(() => { document.getElementById('loader-screen').style.display = 'none'; }, 3000);
+            setTimeout(() => { document.getElementById('loader-screen').style.display = 'none'; }, 400);
         });
 
         window.pasteText = async () => {
@@ -974,7 +970,10 @@
                         : query(collection(db, "posts"), orderBy("time", "desc"));
 
             onSnapshot(q, (s) => {
-                const div = document.getElementById(divId); div.innerHTML = "";
+                const div = document.getElementById(divId); 
+                div.innerHTML = "";
+                // Optimization: Fragment batch DOM updates
+                const fragment = document.createDocumentFragment();
                 let stars = 0, posts = 0;
                 
                 let rawPosts = [];
@@ -1083,8 +1082,11 @@
                             </div>
                         </div>
                     `;
-                    div.appendChild(el);
+                    fragment.appendChild(el);
                 });
+                // Render all posts at once
+                div.appendChild(fragment);
+                
                 if(uid) { document.getElementById('s-stars').innerText = stars; document.getElementById('s-posts').innerText = posts; }
             });
         }
@@ -1331,7 +1333,10 @@
         const searchInput = document.getElementById('sq');
         const suggestionsBox = document.getElementById('search-suggestions-box');
 
+        // Optimization: Added Debouncing so Firebase isn't queried on every single keystroke
+        let searchDebounceTimer;
         searchInput.addEventListener('input', async () => {
+            clearTimeout(searchDebounceTimer);
             let val = searchInput.value.toLowerCase().replace(/\s+/g, '').trim();
             
             if(!val || val.length === 0) {
@@ -1340,51 +1345,53 @@
                 return;
             }
 
-            try {
-                const q = query(
-                    collection(db, "users"), 
-                    orderBy("username"), 
-                    where("username", ">=", val), 
-                    where("username", "<=", val + "\uf8ff")
-                );
-                
-                const snap = await getDocs(q);
-                
-                if(snap.empty) {
-                    suggestionsBox.style.display = 'none';
-                    suggestionsBox.innerHTML = '';
-                    return;
-                }
-
-                suggestionsBox.innerHTML = '';
-                suggestionsBox.style.display = 'block';
-
-                snap.forEach(docSnap => {
-                    const uData = docSnap.data();
-                    const uPic = (uData.pic && uData.pic !== "" && uData.pic !== "null") ? uData.pic : defaultAvtr;
+            searchDebounceTimer = setTimeout(async () => {
+                try {
+                    const q = query(
+                        collection(db, "users"), 
+                        orderBy("username"), 
+                        where("username", ">=", val), 
+                        where("username", "<=", val + "\uf8ff")
+                    );
                     
-                    const searchItemRedTick = uData.hasRedTick ? redTickSVG : '';
-
-                    const item = document.createElement('div');
-                    item.className = 'suggestion-item';
-                    item.innerHTML = `
-                        <img src="${uPic}" onerror="this.src='${defaultAvtr}'">
-                        <span style="display:flex; align-items:center;">@${uData.username}${searchItemRedTick}</span>
-                    `;
+                    const snap = await getDocs(q);
                     
-                    item.addEventListener('click', () => {
-                        searchInput.value = uData.username;
+                    if(snap.empty) {
                         suggestionsBox.style.display = 'none';
                         suggestionsBox.innerHTML = '';
-                        navTo('profile', false, uData);
+                        return;
+                    }
+
+                    suggestionsBox.innerHTML = '';
+                    suggestionsBox.style.display = 'block';
+
+                    snap.forEach(docSnap => {
+                        const uData = docSnap.data();
+                        const uPic = (uData.pic && uData.pic !== "" && uData.pic !== "null") ? uData.pic : defaultAvtr;
+                        
+                        const searchItemRedTick = uData.hasRedTick ? redTickSVG : '';
+
+                        const item = document.createElement('div');
+                        item.className = 'suggestion-item';
+                        item.innerHTML = `
+                            <img src="${uPic}" onerror="this.src='${defaultAvtr}'">
+                            <span style="display:flex; align-items:center;">@${uData.username}${searchItemRedTick}</span>
+                        `;
+                        
+                        item.addEventListener('click', () => {
+                            searchInput.value = uData.username;
+                            suggestionsBox.style.display = 'none';
+                            suggestionsBox.innerHTML = '';
+                            navTo('profile', false, uData);
+                        });
+
+                        suggestionsBox.appendChild(item);
                     });
 
-                    suggestionsBox.appendChild(item);
-                });
-
-            } catch (err) {
-                console.error("Suggestion engine error: ", err);
-            }
+                } catch (err) {
+                    console.error("Suggestion engine error: ", err);
+                }
+            }, 300); // Wait 300ms before calling DB
         });
 
         document.addEventListener('click', (e) => {
