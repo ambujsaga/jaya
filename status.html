@@ -246,6 +246,7 @@
             background: rgba(255,255,255,0.3);
             border-radius: 2px;
             overflow: hidden;
+            z-index: 10;
         }
 
         .progress-bar {
@@ -284,6 +285,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            z-index: 2;
         }
 
         .viewer-content img, .viewer-content video {
@@ -297,6 +299,38 @@
             text-align: center;
             padding: 20px;
             word-break: break-word;
+        }
+
+        /* --- VIEWER NAVIGATION & COUNTER --- */
+        .viewer-nav-area {
+            position: absolute;
+            top: 70px;
+            bottom: 50px;
+            left: 0;
+            right: 0;
+            display: flex;
+            z-index: 5;
+        }
+        
+        .nav-left, .nav-right {
+            flex: 1;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .status-counter-display {
+            position: absolute;
+            bottom: 25px;
+            right: 25px;
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 10;
+            border: 1px solid rgba(0, 229, 255, 0.3);
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);
         }
 
         /* --- VIEWER LIST MODAL --- */
@@ -337,6 +371,43 @@
             height: 35px;
             border-radius: 50%;
             object-fit: cover;
+        }
+
+        /* --- FLOATING BUTTONS (HOME PAGE) --- */
+        .floating-actions {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 12px;
+            z-index: 100;
+        }
+
+        .float-btn {
+            background: var(--card-bg);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: var(--neon-shadow);
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .float-btn:hover {
+            background: var(--primary);
+            color: var(--bg);
+        }
+
+        .float-btn.bits-btn {
+            font-size: 12px;
+            padding: 8px 16px;
+            border-radius: 20px;
         }
     </style>
 </head>
@@ -382,6 +453,11 @@
         </div>
     </div>
 
+    <div class="floating-actions">
+        <a href="#" class="float-btn bits-btn">Bits</a>
+        <a href="#" class="float-btn">Link Back</a>
+    </div>
+
     <div class="status-viewer" id="status-player-modal">
         <div class="progress-container"><div class="progress-bar" id="status-progress"></div></div>
         
@@ -406,7 +482,15 @@
                 </button>
             </div>
         </div>
+
+        <div class="viewer-nav-area">
+            <div class="nav-left" onclick="skipPrev()"></div>
+            <div class="nav-right" onclick="skipNext()"></div>
+        </div>
+
         <div class="viewer-content" id="viewer-body-render"></div>
+
+        <div id="status-counter-display" class="status-counter-display">1/1</div>
         
         <div id="viewers-list-panel" class="viewers-list-modal">
             <div class="viewers-list-header">
@@ -688,6 +772,25 @@
             playSlideshow();
         }
 
+        // SKIP LOGIC START
+        window.skipNext = function() {
+            currentSlideIndex++;
+            if(currentSlideIndex >= currentViewingStory.slides.length) {
+                closeStatusViewer(); // Last status tha to close kardo
+            } else {
+                playSlideshow();
+            }
+        }
+
+        window.skipPrev = function() {
+            currentSlideIndex--;
+            if(currentSlideIndex < 0) {
+                currentSlideIndex = 0; // Piche aur kuch nahi hai to same par rakho
+            }
+            playSlideshow();
+        }
+        // SKIP LOGIC END
+
         function playSlideshow() {
             if(currentSlideIndex >= currentViewingStory.slides.length) {
                 closeStatusViewer();
@@ -702,6 +805,9 @@
             
             const slide = currentViewingStory.slides[currentSlideIndex];
             const isOwner = (window.currentUserProfile && currentViewingStory.uid === window.currentUserProfile.uid);
+
+            // Update Status Counter UI
+            document.getElementById('status-counter-display').innerText = `${currentSlideIndex + 1} / ${currentViewingStory.slides.length}`;
 
             if (!isOwner && window.currentUserProfile) {
                 const alreadyViewed = slide.viewedBy.some(v => v.uid === window.currentUserProfile.uid);
