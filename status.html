@@ -13,6 +13,7 @@
             --text-muted: #8a99b3;
             --red: #ff4444; 
             --neon-shadow: 0 0 15px rgba(0, 229, 255, 0.6);
+            --seen-color: #4a5568;
         }
 
         body {
@@ -35,7 +36,7 @@
             display: flex;
             align-items: center;
             gap: 15px;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
             background: var(--card-bg);
             padding: 15px;
             border-radius: 16px;
@@ -57,7 +58,7 @@
             overflow-x: auto;
             width: 100%;
             padding: 10px 0;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
 
         .stories-tray::-webkit-scrollbar { display: none; }
@@ -74,9 +75,20 @@
             width: 65px;
             height: 65px;
             border-radius: 50%;
+            padding: 3px;
+            transition: all 0.3s ease;
+        }
+
+        /* Neon ring indicator for UNSEEN statuses */
+        .story-ring.unseen {
             border: 3px solid var(--primary);
-            padding: 2px;
             box-shadow: var(--neon-shadow);
+        }
+
+        /* Muted gray ring for SEEN statuses */
+        .story-ring.seen {
+            border: 3px solid var(--seen-color);
+            box-shadow: none;
         }
 
         .story-ring img {
@@ -96,7 +108,28 @@
             white-space: nowrap;
         }
 
-        /* --- CONTROL CARD PANEL --- */
+        /* --- COLLAPSIBLE COMPONENT BOX --- */
+        .toggle-create-btn {
+            width: 100%;
+            background: rgba(0, 229, 255, 0.1);
+            color: var(--primary);
+            border: 1px solid rgba(0, 229, 255, 0.3);
+            padding: 14px;
+            border-radius: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            transition: 0.2s;
+        }
+
+        .toggle-create-btn:hover {
+            background: rgba(0, 229, 255, 0.2);
+        }
+
         .card {
             background: var(--card-bg);
             border-radius: 24px;
@@ -104,9 +137,20 @@
             border: 1px solid rgba(0, 229, 255, 0.15);
             box-shadow: 0 8px 25px rgba(0,0,0,0.4);
             margin-bottom: 20px;
+            display: none; /* Controlled via toggle */
         }
 
-        textarea, input[type="text"] {
+        .card.active {
+            display: block;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        textarea {
             width: 100%;
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.1);
@@ -117,6 +161,7 @@
             outline: none;
             margin-bottom: 12px;
             font-family: inherit;
+            resize: none;
         }
 
         .file-input-wrapper {
@@ -127,10 +172,10 @@
         }
 
         .btn-upload-label {
-            background: rgba(0, 229, 255, 0.1);
+            background: rgba(0, 229, 255, 0.05);
             color: var(--primary);
-            border: 1px dashed var(--primary);
-            padding: 10px;
+            border: 1px dashed rgba(0, 229, 255, 0.4);
+            padding: 12px;
             border-radius: 12px;
             text-align: center;
             font-size: 13px;
@@ -150,7 +195,7 @@
             box-shadow: var(--neon-shadow);
         }
 
-        /* --- FULLSCREEN ULTRA VIEW MODAL --- */
+        /* --- FULLSCREEN VIEW MODAL --- */
         .status-viewer {
             display: none;
             position: fixed;
@@ -158,52 +203,64 @@
             background: #000;
             z-index: 9999;
             flex-direction: column;
-            justify-content: center;
+            justify-content: space-between;
             align-items: center;
+            padding: 20px 0;
         }
 
-        .viewer-header {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            right: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            z-index: 10;
+        .viewer-top-panel {
+            width: 100%;
+            padding: 0 20px;
+            box-sizing: border-box;
         }
 
         .progress-container {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            right: 10px;
             height: 3px;
             background: rgba(255,255,255,0.3);
             border-radius: 2px;
             overflow: hidden;
+            margin-bottom: 15px;
+            display: flex;
+            gap: 4px;
         }
 
-        .progress-bar {
+        .segment-bg {
+            flex: 1;
+            background: rgba(255,255,255,0.3);
+            height: 100%;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .segment-bar {
             height: 100%;
             width: 0%;
             background: var(--primary);
         }
 
+        .viewer-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .viewer-user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
         .viewer-close {
-            position: absolute;
-            top: 20px;
-            right: 20px;
             color: #fff;
-            font-size: 30px;
+            font-size: 28px;
             cursor: pointer;
-            z-index: 11;
         }
 
         .viewer-content {
             width: 100%;
             max-width: 450px;
-            height: 80vh;
+            height: 65vh;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -221,6 +278,51 @@
             padding: 20px;
             word-break: break-word;
         }
+
+        /* --- ACTION PANEL (DELETE & VIEWS TRACKER) --- */
+        .viewer-action-panel {
+            width: 100%;
+            max-width: 450px;
+            background: rgba(6, 17, 39, 0.85);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding: 15px 20px;
+            box-sizing: border-box;
+            border-radius: 20px 20px 0 0;
+            text-align: center;
+        }
+
+        .view-count-trigger {
+            font-size: 13px;
+            color: var(--text-muted);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .viewer-delete-btn {
+            background: var(--red);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+
+        .views-modal-list {
+            font-size: 12px;
+            color: #fff;
+            max-height: 60px;
+            overflow-y: auto;
+            margin-top: 8px;
+            padding: 5px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 6px;
+            text-align: left;
+        }
     </style>
 </head>
 <body>
@@ -236,7 +338,11 @@
 
         <div class="stories-tray" id="stories-tray-zone"></div>
 
-        <div class="card">
+        <button class="toggle-create-btn" onclick="toggleCreateBox()">
+            ✍️ Create New Status Update
+        </button>
+
+        <div class="card" id="create-status-card">
             <h3 style="margin-top: 0; color: var(--primary);">Create Status</h3>
             <textarea id="status-text-input" placeholder="Type your mind status text..."></textarea>
             
@@ -256,13 +362,24 @@
     </div>
 
     <div class="status-viewer" id="status-player-modal">
-        <div class="progress-container"><div class="progress-bar" id="status-progress"></div></div>
-        <div class="viewer-close" onclick="closeStatusViewer()">✕</div>
-        <div class="viewer-header">
-            <img id="viewer-avatar" src="" class="p-pic" style="width: 35px; height: 35px;">
-            <strong id="viewer-username"></strong>
+        <div class="viewer-top-panel">
+            <div class="progress-container" id="segments-wrapper"></div>
+            <div class="viewer-header">
+                <div class="viewer-user-info">
+                    <img id="viewer-avatar" src="" class="p-pic" style="width: 38px; height: 38px;">
+                    <strong id="viewer-username"></strong>
+                </div>
+                <div class="viewer-close" onclick="closeStatusViewer()">✕</div>
+            </div>
         </div>
+
         <div class="viewer-content" id="viewer-body-render"></div>
+
+        <div class="viewer-action-panel" id="viewer-bottom-controls">
+            <div class="view-count-trigger" id="view-counter-node">👁️ 0 Views</div>
+            <div class="views-modal-list" id="views-list-container" style="display:none;"></div>
+            <div id="delete-action-injection"></div>
+        </div>
     </div>
 
     <script type="module">
@@ -270,7 +387,6 @@
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // Extracted Core Database Credentials from Source
         const firebaseConfig = { 
             apiKey: "AIzaSyAnpAuGPUKwptzhZmxtlt8LgS094tQ4ZGQ",
             authDomain: "the-jaya-by-ree.firebaseapp.com",
@@ -283,16 +399,16 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // Core Global Session Identity Cache
         let activeSessionUser = null;
 
-        // Route Authentication Gate Controller
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 try {
                     const userSnap = await getDoc(doc(db, "users", user.uid));
                     if (userSnap.exists()) {
                         activeSessionUser = userSnap.data();
+                        // Add secure uid fallback parsing directly if missing inside data payload
+                        if(!activeSessionUser.uid) activeSessionUser.uid = user.uid;
                         initializeStatusEngine();
                     } else {
                         throwAuthError();
@@ -307,13 +423,13 @@
 
         function throwAuthError() {
             alert("❌ Access Denied: Pahle Official Website 'The Jaya' par account login karein!");
-            window.location.href = "index.html"; // Redirecting back to official domain view
+            window.location.href = "index.html";
         }
 
         function initializeStatusEngine() {
             document.getElementById('user-avatar').src = activeSessionUser.pic || "https://cdn-icons-png.flaticon.com/512/149/149071.png";
             document.getElementById('welcome-username').innerText = "@" + activeSessionUser.username;
-            window.currentUserProfile = activeSessionUser; // Export runtime context safely
+            window.currentUserProfile = activeSessionUser;
             renderStoriesTray();
         }
     </script>
@@ -321,10 +437,16 @@
     <script>
         const PHOTO_LIMIT = 10;
         const VIDEO_LIMIT = 5;
-        const EXPIRATION_TIME = 24 * 60 * 60 * 1000; // 24 Hours in ms
+        const EXPIRATION_TIME = 24 * 60 * 60 * 1000;
 
-        let storyPlaybackTimer = null;
         let progressAnimationInterval = null;
+        let activeStoryDataReference = null;
+        let currentSlidePointerIndex = 0;
+
+        function toggleCreateBox() {
+            const card = document.getElementById('create-status-card');
+            card.classList.toggle('active');
+        }
 
         function validateFiles() {
             const photos = document.getElementById('photo-files').files;
@@ -344,7 +466,6 @@
             indicator.innerText = `Selected: ${photos.length} Photo(s) | ${videos.length} Video(s)`;
         }
 
-        // Convert file data directly to Base64 to secure storage offline efficiently
         function convertToBase64(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -368,43 +489,69 @@
 
             const mediaItems = [];
 
-            // Add text status component
             if (textContent) {
-                mediaItems.push({ type: 'text', content: textContent, duration: 10000 });
+                mediaItems.push({
+                    slideId: 'slide_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                    type: 'text',
+                    content: textContent,
+                    duration: 7000,
+                    views: []
+                });
             }
 
-            // Process Image buffers
             for(let i=0; i<photoFiles.length; i++) {
                 const b64Data = await convertToBase64(photoFiles[i]);
-                mediaItems.push({ type: 'image', content: b64Data, duration: 10000 }); // Photo explicit 10s window execution limit
+                mediaItems.push({
+                    slideId: 'slide_' + Date.now() + '_p' + i,
+                    type: 'image',
+                    content: b64Data,
+                    duration: 7000,
+                    views: []
+                });
             }
 
-            // Process Video buffers
             for(let i=0; i<videoFiles.length; i++) {
                 const b64Data = await convertToBase64(videoFiles[i]);
-                mediaItems.push({ type: 'video', content: b64Data, duration: 25000 }); // Video explicit 25s window execution limit
+                mediaItems.push({
+                    slideId: 'slide_' + Date.now() + '_v' + i,
+                    type: 'video',
+                    content: b64Data,
+                    duration: 15000,
+                    views: []
+                });
             }
 
-            const collectiveStories = JSON.parse(localStorage.getItem('thejaya_stories_db') || '[]');
-            
-            // Construct modern dataset entry node structure mapping reference schema
-            const newStatusEntry = {
-                id: 'status_' + Date.now(),
-                uid: window.currentUserProfile.uid,
-                username: window.currentUserProfile.username,
-                avatar: window.currentUserProfile.pic || "https://cdn-icons-png.flaticon.com/512/149/149071.png",
-                timestamp: Date.now(),
-                slides: mediaItems
-            };
+            let collectiveStories = JSON.parse(localStorage.getItem('thejaya_stories_db') || '[]');
+            const currentUid = window.currentUserProfile.uid;
 
-            collectiveStories.push(newStatusEntry);
+            // Find if user already has an active entry stack trace
+            let existingUserNode = collectiveStories.find(item => item.uid === currentUid);
+
+            if (existingUserNode) {
+                // Merge new slides smoothly inside the exact profile context data layer
+                existingUserNode.slides.push(...mediaItems);
+                existingUserNode.timestamp = Date.now(); // Reset delta to bubble up updates array
+            } else {
+                // Construct clean metadata frame node system layout
+                const newStatusEntry = {
+                    id: 'status_' + Date.now(),
+                    uid: currentUid,
+                    username: window.currentUserProfile.username,
+                    avatar: window.currentUserProfile.pic || "https://cdn-icons-png.flaticon.com/512/149/149071.png",
+                    timestamp: Date.now(),
+                    slides: mediaItems
+                };
+                collectiveStories.push(newStatusEntry);
+            }
+
             localStorage.setItem('thejaya_stories_db', JSON.stringify(collectiveStories));
 
-            // Reset dashboard fields securely
+            // UI Fields Cleanup Routine
             document.getElementById('status-text-input').value = "";
             document.getElementById('photo-files').value = "";
             document.getElementById('video-files').value = "";
             document.getElementById('file-count-status').innerText = "";
+            document.getElementById('create-status-card').classList.remove('active');
 
             alert("🚀 Status uploaded successfully matching internal platform method matrix!");
             renderStoriesTray();
@@ -416,9 +563,18 @@
             
             let database = JSON.parse(localStorage.getItem('thejaya_stories_db') || '[]');
             const now = Date.now();
+            const currentUid = window.currentUserProfile ? window.currentUserProfile.uid : null;
 
-            // Self cleanup verification architecture: 24hr lifetime limit filter
-            database = database.filter(item => (now - item.timestamp) < EXPIRATION_TIME);
+            // 24hr lifetime limit filter per explicit slides verification architecture
+            database.forEach(userEntry => {
+                userEntry.slides = userEntry.slides.filter(slide => {
+                    const slideTime = parseInt(slide.slideId.split('_')[1]);
+                    return (now - slideTime) < EXPIRATION_TIME;
+                });
+            });
+
+            // Cleanup empty users who have no active slides left
+            database = database.filter(userEntry => userEntry.slides.length > 0);
             localStorage.setItem('thejaya_stories_db', JSON.stringify(database));
 
             if(database.length === 0) {
@@ -427,12 +583,18 @@
             }
 
             database.forEach(userStory => {
+                // Signal detection mechanism: calculate if any slide is unseen by current session tracker
+                let isUnseen = false;
+                if(currentUid) {
+                    isUnseen = userStory.slides.some(slide => !slide.views || !slide.views.includes(currentUid));
+                }
+
                 const node = document.createElement('div');
                 node.className = 'story-node';
                 node.onclick = () => openStatusViewer(userStory);
 
                 node.innerHTML = `
-                    <div class="story-ring">
+                    <div class="story-ring ${isUnseen ? 'unseen' : 'seen'}">
                         <img src="${userStory.avatar}" alt="user">
                     </div>
                     <div class="story-username">@${userStory.username}</div>
@@ -442,84 +604,203 @@
         }
 
         function openStatusViewer(storyData) {
+            activeStoryDataReference = storyData;
+            currentSlidePointerIndex = 0;
+
             const modal = document.getElementById('status-player-modal');
-            const renderTarget = document.getElementById('viewer-body-render');
-            const progressBar = document.getElementById('status-progress');
-            
             document.getElementById('viewer-avatar').src = storyData.avatar;
             document.getElementById('viewer-username').innerText = "@" + storyData.username;
             
             modal.style.display = 'flex';
-            let activeSlideIndex = 0;
-
-            function playSlideshow() {
-                if(activeSlideIndex >= storyData.slides.length) {
-                    closeStatusViewer();
-                    return;
-                }
-
-                renderTarget.innerHTML = "";
-                progressBar.style.width = "0%";
-                
-                const slide = storyData.slides[activeSlideIndex];
-                let playbackTimeoutLimit = slide.duration;
-
-                if (slide.type === 'text') {
-                    const textBlock = document.createElement('div');
-                    textBlock.className = 'viewer-text';
-                    textBlock.innerText = slide.content;
-                    renderTarget.appendChild(textBlock);
-                } 
-                else if (slide.type === 'image') {
-                    const imgNode = document.createElement('img');
-                    imgNode.src = slide.content;
-                    renderTarget.appendChild(imgNode);
-                } 
-                else if (slide.type === 'video') {
-                    const videoNode = document.createElement('video');
-                    videoNode.src = slide.content;
-                    videoNode.autoplay = true;
-                    videoNode.muted = false;
-                    videoNode.playsInline = true;
-                    renderTarget.appendChild(videoNode);
-
-                    // 25 second limit auto check injection for heavy files
-                    videoNode.onloadedmetadata = function() {
-                        if(videoNode.duration < 25) {
-                            playbackTimeoutLimit = videoNode.duration * 1000;
-                        }
-                    };
-                }
-
-                // Progress Bar Timeline Control System
-                let elapsedCounter = 0;
-                const intervalTickRate = 50; 
-                clearInterval(progressAnimationInterval);
-                
-                progressAnimationInterval = setInterval(() => {
-                    elapsedCounter += intervalTickRate;
-                    const calculatedPercentage = (elapsedCounter / playbackTimeoutLimit) * 100;
-                    progressBar.style.width = Math.min(calculatedPercentage, 100) + "%";
-                    
-                    if(elapsedCounter >= playbackTimeoutLimit) {
-                        clearInterval(progressAnimationInterval);
-                        activeSlideIndex++;
-                        playSlideshow();
-                    }
-                }, intervalTickRate);
+            
+            // Generate visual segmented linear indicator bars frame
+            const segmentsWrapper = document.getElementById('segments-wrapper');
+            segmentsWrapper.innerHTML = "";
+            for(let i=0; i < storyData.slides.length; i++) {
+                const segBg = document.createElement('div');
+                segBg.className = 'segment-bg';
+                const segBar = document.createElement('div');
+                segBar.className = 'segment-bar';
+                segBar.id = `slide-bar-${i}`;
+                segBg.appendChild(segBar);
+                segmentsWrapper.appendChild(segBg);
             }
 
-            playSlideshow();
+            playSlideshowEngine();
+        }
+
+        function playSlideshowEngine() {
+            const renderTarget = document.getElementById('viewer-body-render');
+            clearInterval(progressAnimationInterval);
+
+            if(currentSlidePointerIndex >= activeStoryDataReference.slides.length) {
+                closeStatusViewer();
+                return;
+            }
+
+            renderTarget.innerHTML = "";
+            
+            // Mark previously loaded segment lines as filled completely
+            for(let i=0; i<currentSlidePointerIndex; i++) {
+                const bar = document.getElementById(`slide-bar-${i}`);
+                if(bar) bar.style.width = "100%";
+            }
+            // Reset current and future indicator bars
+            for(let i=currentSlidePointerIndex; i<activeStoryDataReference.slides.length; i++) {
+                const bar = document.getElementById(`slide-bar-${i}`);
+                if(bar) bar.style.width = "0%";
+            }
+
+            const currentSlide = activeStoryDataReference.slides[currentSlidePointerIndex];
+            let playbackTimeoutLimit = currentSlide.duration || 7000;
+
+            // Sync structural seen status metadata instantly 
+            syncViewTrackRecord(currentSlide.slideId);
+
+            // Populate active controls setup base layer
+            renderActionControlPanel(currentSlide);
+
+            if (currentSlide.type === 'text') {
+                const textBlock = document.createElement('div');
+                textBlock.className = 'viewer-text';
+                textBlock.innerText = currentSlide.content;
+                renderTarget.appendChild(textBlock);
+            } 
+            else if (currentSlide.type === 'image') {
+                const imgNode = document.createElement('img');
+                imgNode.src = currentSlide.content;
+                renderTarget.appendChild(imgNode);
+            } 
+            else if (currentSlide.type === 'video') {
+                const videoNode = document.createElement('video');
+                videoNode.src = currentSlide.content;
+                videoNode.autoplay = true;
+                videoNode.muted = false;
+                videoNode.playsInline = true;
+                renderTarget.appendChild(videoNode);
+
+                videoNode.onloadedmetadata = function() {
+                    if(videoNode.duration && videoNode.duration < 15) {
+                        playbackTimeoutLimit = videoNode.duration * 1000;
+                    }
+                };
+            }
+
+            let elapsedCounter = 0;
+            const intervalTickRate = 40; 
+            const progressBar = document.getElementById(`slide-bar-${currentSlidePointerIndex}`);
+            
+            progressAnimationInterval = setInterval(() => {
+                elapsedCounter += intervalTickRate;
+                const calculatedPercentage = (elapsedCounter / playbackTimeoutLimit) * 100;
+                if(progressBar) progressBar.style.width = Math.min(calculatedPercentage, 100) + "%";
+                
+                if(elapsedCounter >= playbackTimeoutLimit) {
+                    clearInterval(progressAnimationInterval);
+                    currentSlidePointerIndex++;
+                    playSlideshowEngine();
+                }
+            }, intervalTickRate);
+        }
+
+        function syncViewTrackRecord(slideId) {
+            if(!window.currentUserProfile) return;
+            const currentUid = window.currentUserProfile.uid;
+
+            let database = JSON.parse(localStorage.getItem('thejaya_stories_db') || '[]');
+            let structuralUpdateFlag = false;
+
+            database.forEach(userStory => {
+                userStory.slides.forEach(slide => {
+                    if(slide.slideId === slideId) {
+                        if(!slide.views) slide.views = [];
+                        if(!slide.views.includes(currentUid)) {
+                            slide.views.push(currentUid);
+                            structuralUpdateFlag = true;
+                        }
+                    }
+                });
+            });
+
+            if(structuralUpdateFlag) {
+                localStorage.setItem('thejaya_stories_db', JSON.stringify(database));
+                // Hot sync active runtime ref cache
+                const updatedStory = database.find(item => item.id === activeStoryDataReference.id);
+                if(updatedStory) activeStoryDataReference = updatedStory;
+            }
+        }
+
+        function renderActionControlPanel(slide) {
+            const currentUid = window.currentUserProfile ? window.currentUserProfile.uid : null;
+            const deleteZone = document.getElementById('delete-action-injection');
+            const counterNode = document.getElementById('view-counter-node');
+            const listContainer = document.getElementById('views-list-container');
+            
+            deleteZone.innerHTML = "";
+            listContainer.style.display = "none";
+            
+            const viewList = slide.views || [];
+            counterNode.innerText = `👁️ ${viewList.length} View${viewList.length === 1 ? '' : 's'}`;
+
+            // Attach dynamic toggler event securely to layout node
+            counterNode.onclick = () => {
+                if(listContainer.style.display === "none") {
+                    listContainer.innerHTML = viewList.length > 0 
+                        ? viewList.map(uid => `<div>• Viewer Account Key Reference ID: ${uid}</div>`).join('')
+                        : "No views yet";
+                    listContainer.style.display = "block";
+                } else {
+                    listContainer.style.display = "none";
+                }
+            };
+
+            // Author privilege configuration parsing checks
+            if(activeStoryDataReference.uid === currentUid) {
+                const delBtn = document.createElement('button');
+                delBtn.className = 'viewer-delete-btn';
+                delBtn.innerHTML = '🗑️ Delete This Status';
+                delBtn.onclick = () => executionDeleteSlideTarget(slide.slideId);
+                deleteZone.appendChild(delBtn);
+            }
+        }
+
+        function executionDeleteSlideTarget(slideId) {
+            if(!confirm("Kya aap is status slide ko sach me delete karna chahte hain?")) return;
+            
+            clearInterval(progressAnimationInterval);
+            let database = JSON.parse(localStorage.getItem('thejaya_stories_db') || '[]');
+
+            database.forEach(userStory => {
+                if(userStory.id === activeStoryDataReference.id) {
+                    userStory.slides = userStory.slides.filter(s => s.slideId !== slideId);
+                }
+            });
+
+            // Strip redundant empty object schemas completely
+            database = database.filter(userStory => userStory.slides.length > 0);
+            localStorage.setItem('thejaya_stories_db', JSON.stringify(database));
+
+            alert("🗑️ Status slide deleted successfully!");
+            
+            // Shift target indexing or bounce tracking loops
+            const activeUserEntry = database.find(item => item.id === activeStoryDataReference.id);
+            if(activeUserEntry && activeUserEntry.slides.length > 0) {
+                activeStoryDataReference = activeUserEntry;
+                // Keep playing next remaining slide loop stack smoothly
+                playSlideshowEngine();
+            } else {
+                closeStatusViewer();
+            }
+            renderStoriesTray();
         }
 
         function closeStatusViewer() {
             document.getElementById('status-player-modal').style.display = 'none';
             document.getElementById('viewer-body-render').innerHTML = "";
             clearInterval(progressAnimationInterval);
-            clearTimeout(storyPlaybackTimer);
+            renderStoriesTray();
         }
 
-        // Initial launch configuration bootstrapper loop
         window.onload = () => {
             renderStoriesTray();
         };
