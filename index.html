@@ -1456,7 +1456,7 @@
             i.value = "";
         };
 
-        window.getCom = async (pid, idx) => {
+        window.delCom = async (pid, idx) => {
             const r = doc(db, "posts", pid); const s = await getDoc(r);
             let c = s.data().comments; c.splice(idx, 1);
             await updateDoc(r, { comments: c });
