@@ -11,7 +11,6 @@
     <svg viewBox="0 0 24 24" style="width: 24px; height: 24px;"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
 </a>
 
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
      <style>
@@ -171,6 +170,20 @@
         .orbit { position: absolute; width: 100px; height: 100px; border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 50%; animation: spin 3s linear infinite; }
         @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
         @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* --- ADDED RED TICK & MEDIA CSS --- */
+        .red-tick-svg { width: 18px; height: 18px; color: #ff4444; margin-left: 5px; vertical-align: middle; filter: drop-shadow(0 0 5px rgba(255, 68, 68, 0.4)); display: inline-block; }
+        .post-links-wrapper { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; padding-top: 5px; }
+        .post-link-icon-btn { display: inline-flex; align-items: center; justify-content: flex-start; background: rgba(0, 229, 255, 0.1); color: var(--primary); border: 1px solid rgba(0, 229, 255, 0.3); border-radius: 8px; padding: 6px 10px; font-size: 13px; text-decoration: none; word-break: break-all; width: 100%; box-sizing: border-box; }
+        .post-media-container { position: relative; width: 100%; padding-top: 75%; margin-top: 12px; border-radius: 14px; overflow: hidden; background: #020712; border: 1px solid rgba(0, 229, 255, 0.1); }
+        .post-media-slider { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .post-media-slide { min-width: 100%; height: 100%; position: relative; }
+        .post-media-slide img { width: 100%; height: 100%; object-fit: cover; }
+        .carousel-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(3, 10, 26, 0.75); backdrop-filter: blur(4px); color: var(--primary); border: 1px solid rgba(0, 229, 255, 0.3); width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; font-size: 16px; font-weight: bold; transition: 0.2s; user-select: none; }
+        .carousel-btn:hover { background: var(--primary); color: #030a1a; }
+        .carousel-prev { left: 10px; }
+        .carousel-next { right: 10px; }
+        .carousel-counter { position: absolute; bottom: 10px; right: 10px; background: rgba(3, 10, 26, 0.8); padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: bold; color: var(--primary); border: 1px solid rgba(0, 229, 255, 0.2); z-index: 10; }
     </style>
 </head>
 <body>
@@ -240,6 +253,21 @@
         };
 
         const iconDownload = '<svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>';
+        const redTickSVG = `<svg viewBox="0 0 24 24" class="red-tick-svg" title="Verified"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
+
+        window.shiftCarousel = (postID, steps) => {
+            const slider = document.getElementById(`slider-${postID}`);
+            const counterLabel = document.getElementById(`counter-${postID}`);
+            if(!slider) return;
+            const totalSlides = parseInt(slider.getAttribute("data-total") || "1");
+            let currentIndex = parseInt(slider.getAttribute("data-index") || "0");
+            currentIndex += steps;
+            if(currentIndex < 0) currentIndex = 0;
+            if(currentIndex >= totalSlides) currentIndex = totalSlides - 1;
+            slider.setAttribute("data-index", currentIndex);
+            slider.style.transform = `translateX(-${currentIndex * 100}%)`;
+            if(counterLabel) counterLabel.innerText = `${currentIndex + 1} / ${totalSlides}`;
+        };
 
         onAuthStateChanged(auth, async (u) => {
             if(u) {
@@ -267,7 +295,11 @@
             if(v === 'profile') {
                 const user = isMe ? me : other;
                 document.getElementById('u-img').src = user.pic || defaultAvtr;
-                document.getElementById('u-name').innerText = "@" + user.username;
+                const tickDisplay = user.hasRedTick ? redTickSVG : '';
+                document.getElementById('u-name').innerHTML = "@" + user.username + tickDisplay;
+                document.getElementById('u-name').style.display = "flex";
+                document.getElementById('u-name').style.alignItems = "center";
+                document.getElementById('u-name').style.justifyContent = "center";
                 document.getElementById('my-controls').style.display = isMe ? 'block' : 'none';
                 loadFeed("u-feed", user.uid);
             }
@@ -285,6 +317,34 @@
                     if(uid) { stars += (p.stars?.length || 0); posts++; }
                     
                     const userPic = p.pic || p.photoURL || defaultAvtr;
+                    const postRedTick = p.hasRedTick ? redTickSVG : '';
+
+                    let linksHtml = '';
+                    if (p.links && p.links.length > 0) {
+                        linksHtml = `<div class="post-links-wrapper">`;
+                        p.links.forEach(linkUrl => {
+                            linksHtml += `<div class="post-link-icon-btn">🔗 ${linkUrl}</div>`;
+                        });
+                        linksHtml += `</div>`;
+                    }
+
+                    let imagesHtml = "";
+                    if (p.images && p.images.length > 0) {
+                        const count = p.images.length;
+                        imagesHtml += `<div class="post-media-container">`;
+                        if(count > 1) {
+                            imagesHtml += `<div class="carousel-btn carousel-prev" data-html2canvas-ignore="true" onclick="shiftCarousel('${d.id}', -1)">❮</div>`;
+                            imagesHtml += `<div class="carousel-btn carousel-next" data-html2canvas-ignore="true" onclick="shiftCarousel('${d.id}', 1)">❯</div>`;
+                            imagesHtml += `<div id="counter-${d.id}" class="carousel-counter">1 / ${count}</div>`;
+                        } else {
+                            imagesHtml += `<div class="carousel-counter">1 / 1</div>`;
+                        }
+                        imagesHtml += `<div id="slider-${d.id}" class="post-media-slider" data-index="0" data-total="${count}">`;
+                        p.images.forEach(imgBase64 => {
+                            imagesHtml += `<div class="post-media-slide"><img src="${imgBase64}" crossorigin="anonymous" onerror="this.parentNode.style.display='none'"></div>`;
+                        });
+                        imagesHtml += `</div></div>`;
+                    }
 
                     const el = document.createElement('div');
                     el.className = 'card';
@@ -293,11 +353,13 @@
                         <div class="profile-header" style="display:flex; align-items:center; gap:12px; margin-bottom:15px;">
                             <img src="${userPic}" class="p-pic" onerror="this.src='${defaultAvtr}'">
                             <div class="user-info">
-                                <strong onclick="findUserByUname('${p.username}')" style="cursor:pointer;">@${p.username}</strong>
+                                <strong onclick="findUserByUname('${p.username}')" style="cursor:pointer; display:flex; align-items:center;">@${p.username}${postRedTick}</strong>
                                 <span class="post-time">${timeAgo(p.time)}</span>
                             </div>
                         </div>
                         <p>${p.text}</p>
+                        ${imagesHtml}
+                        ${linksHtml}
                         <div class="watermark">The Jaya • @${p.username}</div>
                         <div class="action-bar">
                             <button class="download-btn" onclick="downloadPost('${d.id}')">
