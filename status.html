@@ -58,6 +58,17 @@
             fill: #ff4444;
         }
 
+        /* NEW RED TICK CSS IMPORTED FROM INDEX */
+        .red-tick-svg {
+            width: 16px;
+            height: 16px;
+            color: #ff4444;
+            margin-left: 4px;
+            vertical-align: middle;
+            filter: drop-shadow(0 0 5px rgba(255, 68, 68, 0.4));
+            display: inline-block;
+        }
+
         /* --- STORIES TRAY COMPONENT --- */
         .stories-tray {
             display: flex;
@@ -516,10 +527,10 @@
 
         const firebaseConfig = { 
             apiKey: "AIzaSyCwsiYyKy6r2rKu-nGy7lu9Zv0aL9SE-8M",
-  authDomain: "links-62592.firebaseapp.com",
-  databaseURL: "https://links-62592-default-rtdb.firebaseio.com",
-  projectId: "links-62592",
-  storageBucket: "links-62592.firebasestorage.app",
+            authDomain: "links-62592.firebaseapp.com",
+            databaseURL: "https://links-62592-default-rtdb.firebaseio.com",
+            projectId: "links-62592",
+            storageBucket: "links-62592.firebasestorage.app",
         };
 
         const app = initializeApp(firebaseConfig);
@@ -562,9 +573,8 @@
             document.getElementById('user-avatar').src = activeSessionUser.pic || "https://cdn-icons-png.flaticon.com/512/149/149071.png";
             document.getElementById('welcome-username').innerText = "@" + activeSessionUser.username;
             
-            if (activeSessionUser.redTick || activeSessionUser.verified || activeSessionUser.role === 'admin') {
-                const tickTemplate = document.getElementById('red-tick-svg').content.cloneNode(true);
-                document.getElementById('welcome-username-container').appendChild(tickTemplate);
+            if (activeSessionUser.hasRedTick || activeSessionUser.redTick || activeSessionUser.verified || activeSessionUser.role === 'admin') {
+                document.getElementById('welcome-username-container').innerHTML += `<svg viewBox="0 0 24 24" class="red-tick-svg" title="Verified"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
             }
 
             window.currentUserProfile = activeSessionUser;
@@ -697,7 +707,8 @@
                     uid: window.currentUserProfile.uid,
                     username: window.currentUserProfile.username,
                     avatar: window.currentUserProfile.pic || "https://cdn-icons-png.flaticon.com/512/149/149071.png",
-                    redTick: window.currentUserProfile.redTick || window.currentUserProfile.verified || false,
+                    redTick: window.currentUserProfile.hasRedTick || window.currentUserProfile.redTick || window.currentUserProfile.verified || false,
+                    hasRedTick: window.currentUserProfile.hasRedTick || window.currentUserProfile.redTick || window.currentUserProfile.verified || false,
                     slides: newSlides
                 };
             }
@@ -733,7 +744,7 @@
                 if(!isCurrentUser && window.currentUserProfile) {
                     hasUnseen = userStory.slides.some(slide => !slide.viewedBy.some(v => v.uid === window.currentUserProfile.uid));
                 }
-                const tickHtml = userStory.redTick ? `<svg class="red-tick" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>` : '';
+                const tickHtml = (userStory.hasRedTick || userStory.redTick) ? `<svg viewBox="0 0 24 24" class="red-tick-svg" title="Verified"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>` : '';
                 node.innerHTML = `<div class="story-ring ${hasUnseen ? 'unseen' : ''}"><img src="${userStory.avatar}" alt="user"></div><div class="story-username">@${userStory.username} ${tickHtml}</div>`;
                 tray.appendChild(node);
             });
@@ -746,9 +757,8 @@
             document.getElementById('viewer-avatar').src = storyData.avatar;
             const usernameContainer = document.getElementById('viewer-username-container');
             usernameContainer.innerHTML = `<span id="viewer-username">@${storyData.username}</span>`;
-            if(storyData.redTick) {
-                const tickTemplate = document.getElementById('red-tick-svg').content.cloneNode(true);
-                usernameContainer.appendChild(tickTemplate);
+            if(storyData.hasRedTick || storyData.redTick) {
+                usernameContainer.innerHTML += `<svg viewBox="0 0 24 24" class="red-tick-svg" title="Verified"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
             }
             modal.style.display = 'flex';
             playSlideshow();
@@ -770,7 +780,7 @@
 
             if (!isOwner && window.currentUserProfile) {
                 const alreadyViewed = slide.viewedBy.some(v => v.uid === window.currentUserProfile.uid);
-                if (!alreadyViewed) { slide.viewedBy.push({ uid: window.currentUserProfile.uid, username: window.currentUserProfile.username, avatar: window.currentUserProfile.pic || "https://cdn-icons-png.flaticon.com/512/149/149071.png" }); syncToDatabase(); }
+                if (!alreadyViewed) { slide.viewedBy.push({ uid: window.currentUserProfile.uid, username: window.currentUserProfile.username, avatar: window.currentUserProfile.pic || "https://cdn-icons-png.flaticon.com/512/149/149071.png", hasRedTick: window.currentUserProfile.hasRedTick || window.currentUserProfile.redTick || false }); syncToDatabase(); }
             }
 
             if (isOwner) { document.getElementById('delete-status-btn').style.display = 'flex'; document.getElementById('view-count-btn').style.display = 'flex'; document.getElementById('view-count-text').innerText = slide.viewedBy.length; } 
@@ -805,7 +815,7 @@
             }
         }
 
-        window.showViewers = function() { isViewerPaused = true; const slide = currentViewingStory.slides[currentSlideIndex]; const listContent = document.getElementById('viewers-list-content'); if (slide.viewedBy.length === 0) listContent.innerHTML = `<div style="color:var(--text-muted);font-size:13px;text-align:center;">No views yet.</div>`; else listContent.innerHTML = slide.viewedBy.map(v => `<div class="viewer-item"><img src="${v.avatar}"><span>@${v.username}</span></div>`).join(''); document.getElementById('viewers-list-panel').style.display = 'block'; }
+        window.showViewers = function() { isViewerPaused = true; const slide = currentViewingStory.slides[currentSlideIndex]; const listContent = document.getElementById('viewers-list-content'); if (slide.viewedBy.length === 0) listContent.innerHTML = `<div style="color:var(--text-muted);font-size:13px;text-align:center;">No views yet.</div>`; else listContent.innerHTML = slide.viewedBy.map(v => { const vTick = v.hasRedTick || v.redTick ? '<svg viewBox="0 0 24 24" class="red-tick-svg" style="width:14px;height:14px;" title="Verified"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>' : ''; return `<div class="viewer-item"><img src="${v.avatar}"><span style="display:flex;align-items:center;">@${v.username}${vTick}</span></div>`; }).join(''); document.getElementById('viewers-list-panel').style.display = 'block'; }
         window.hideViewers = function() { document.getElementById('viewers-list-panel').style.display = 'none'; isViewerPaused = false; }
         async function syncToDatabase() { if(!currentViewingStory) return; const userDocRef = window.doc(window.db, "status_stories", currentViewingStory.uid); try { if (currentViewingStory.slides.length === 0) await window.deleteDoc(userDocRef); else await window.setDoc(userDocRef, currentViewingStory); } catch(e) { console.error("Error updating story state:", e); } }
         window.closeStatusViewer = function() { document.getElementById('status-player-modal').style.display = 'none'; document.getElementById('viewers-list-panel').style.display = 'none'; document.getElementById('viewer-body-render').innerHTML = ""; clearInterval(progressAnimationInterval); clearTimeout(storyPlaybackTimer); currentViewingStory = null; }
