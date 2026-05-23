@@ -757,6 +757,18 @@
         </div>
     </div>
 
+    <div id="post-image-crop-modal" style="display:none; position:fixed; inset:0; background:rgba(3,10,26,0.95); backdrop-filter:blur(8px); z-index:4500; align-items:center; justify-content:center; flex-direction:column; padding:20px;">
+        <h3 style="color:white; margin-bottom:15px; font-weight:800; font-size:22px;">Crop Photo to 4:3</h3>
+        <div class="crop-container">
+            <img id="post-crop-image" src="" style="max-width:100%; display:block;">
+        </div>
+        <p id="crop-counter" style="color:var(--primary); margin-bottom:15px; font-weight:bold;"></p>
+        <div class="crop-actions">
+            <button class="btn-cancel" onclick="cancelPostCropping()" style="background:rgba(255,255,255,0.1); color:white; border:none;">Cancel All</button>
+            <button class="btn-primary" onclick="confirmPostCrop()">Crop & Next</button>
+        </div>
+    </div>
+
     <div id="post-modal">
         <div class="card">
             <h3>New Post</h3>
@@ -836,6 +848,11 @@
 
         // Global arrays to handle base64 image strings inside post creation
         let selectedBase64Images = [];
+        
+        // NEW Post image cropping state variables
+        let postCropper = null;
+        let pendingCropFiles = [];
+        let currentCropIndex = 0;
 
         const redTickSVG = `<svg viewBox="0 0 24 24" class="red-tick-svg" title="Verified"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
 
@@ -1198,54 +1215,87 @@
             return array;
         }
 
-        // Image Handling Mechanics (Compressed < 1MB & Select Preview Tracker)
+        // --- UPDATED POST IMAGE CROP HANDLER & SEQUENCE ---
         window.handleModalImagesSelect = (inputField) => {
             const files = Array.from(inputField.files);
-            if (files.length > 5) {
+            if (selectedBase64Images.length + files.length > 5) {
                 alert("Maximum 5 photos can be uploaded at a time!");
                 inputField.value = "";
                 return;
             }
+            
+            // Clear previous just like original to ensure fresh batch insertion
             selectedBase64Images = [];
-            const previewContainer = document.getElementById("previewContainer");
-            previewContainer.innerHTML = "";
+            document.getElementById("previewContainer").innerHTML = "";
 
-            files.forEach(file => {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const tempImg = new Image();
-                    tempImg.src = e.target.result;
-                    tempImg.onload = () => {
-                        const canvas = document.createElement("canvas");
-                        let width = tempImg.width;
-                        let height = tempImg.height;
-                        
-                        // Downscale layout bounds if too massive
-                        const max_size = 1200;
-                        if (width > height) {
-                            if (width > max_size) { height *= max_size / width; width = max_size; }
-                        } else {
-                            if (height > max_size) { width *= max_size / height; height = max_size; }
-                        }
-                        
-                        canvas.width = width;
-                        canvas.height = height;
-                        const ctx = canvas.getContext("2d");
-                        ctx.drawImage(tempImg, 0, 0, width, height);
-                        
-                        // Strict low quality compression parameters to stay well under 1MB threshold boundaries
-                        let compressedDataUrl = canvas.toDataURL("image/jpeg", 0.6);
-                        selectedBase64Images.push(compressedDataUrl);
-
-                        const wrp = document.createElement("div");
-                        wrp.className = "preview-img-wrapper";
-                        wrp.innerHTML = `<img src="${compressedDataUrl}">`;
-                        previewContainer.appendChild(wrp);
-                    };
-                };
-                reader.readAsDataURL(file);
-            });
+            pendingCropFiles = files;
+            currentCropIndex = 0;
+            
+            if (pendingCropFiles.length > 0) {
+                showPostCropModalForCurrent();
+            }
+            
+            inputField.value = ""; // reset field for repeated selections
         };
+
+        window.showPostCropModalForCurrent = () => {
+            if (currentCropIndex >= pendingCropFiles.length) {
+                document.getElementById('post-image-crop-modal').style.display = 'none';
+                if (postCropper) postCropper.destroy();
+                return;
+            }
+            
+            const file = pendingCropFiles[currentCropIndex];
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('post-image-crop-modal').style.display = 'flex';
+                document.getElementById('crop-counter').innerText = `Cropping Image ${currentCropIndex + 1} of ${pendingCropFiles.length}`;
+                
+                const image = document.getElementById('post-crop-image');
+                image.src = e.target.result;
+                
+                if (postCropper) { postCropper.destroy(); }
+                
+                postCropper = new Cropper(image, {
+                    aspectRatio: 4 / 3, // EXCLUSIVE 4:3 Crop restriction as requested
+                    viewMode: 1,
+                    autoCropArea: 1,
+                    background: false
+                });
+            };
+            reader.readAsDataURL(file);
+        };
+
+        window.confirmPostCrop = () => {
+            if(!postCropper) return;
+            
+            // Retaining original max size limits to avoid DB crash
+            const canvas = postCropper.getCroppedCanvas({
+                maxWidth: 1200,
+                maxHeight: 900 
+            });
+            
+            const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.6);
+            selectedBase64Images.push(compressedDataUrl);
+
+            const previewContainer = document.getElementById("previewContainer");
+            const wrp = document.createElement("div");
+            wrp.className = "preview-img-wrapper";
+            wrp.innerHTML = `<img src="${compressedDataUrl}">`;
+            previewContainer.appendChild(wrp);
+
+            currentCropIndex++;
+            showPostCropModalForCurrent();
+        };
+
+        window.cancelPostCropping = () => {
+            document.getElementById('post-image-crop-modal').style.display = 'none';
+            if (postCropper) postCropper.destroy();
+            pendingCropFiles = [];
+            selectedBase64Images = []; // revert back safety
+            document.getElementById("previewContainer").innerHTML = "";
+        };
+        // --- END POST IMAGE CROP HANDLER ---
 
         // Custom Safe Carousel Navigation Routine Engine
         window.shiftCarousel = (postID, steps) => {
