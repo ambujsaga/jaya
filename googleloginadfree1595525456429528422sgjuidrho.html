@@ -632,6 +632,33 @@
             border: 1px solid var(--primary); border-radius: 12px; max-height: 150px; overflow-y: auto; 
             z-index: 6000; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: none; backdrop-filter: blur(10px);
         }
+
+        /* --- NEW: LONG PRESS IMAGE EXPANSION CSS --- */
+        .post-media-container.expanded-view {
+            padding-top: 0 !important;
+            height: auto !important;
+            transition: all 0.3s ease;
+        }
+        .post-media-container.expanded-view .post-media-slider {
+            position: relative !important;
+            align-items: center;
+        }
+        .post-media-container.expanded-view .post-media-slide {
+            position: relative !important;
+            height: auto !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 0;
+        }
+        .post-media-container.expanded-view .post-media-slide img {
+            height: auto !important;
+            width: auto !important;
+            max-width: 100% !important;
+            max-height: 90vh !important;
+            object-fit: contain !important;
+            cursor: zoom-out !important;
+        }
     </style>
 </head>
 <body>
@@ -1357,6 +1384,37 @@
             }
         };
 
+        // --- NEW: LONG PRESS IMAGE EXPANSION LOGIC ---
+        let expandTimer = null;
+        window.startExpandTimer = (imgEl) => {
+            const container = imgEl.closest('.post-media-container');
+            if(container && container.classList.contains('expanded-view')) return;
+            
+            expandTimer = setTimeout(() => {
+                window.expandImageInFeed(imgEl);
+            }, 500); // 500ms hold time for long press
+        };
+        window.cancelExpandTimer = () => {
+            if(expandTimer) {
+                clearTimeout(expandTimer);
+                expandTimer = null;
+            }
+        };
+        window.expandImageInFeed = (imgEl) => {
+            const container = imgEl.closest('.post-media-container');
+            if (container) {
+                container.classList.add('expanded-view');
+                if (navigator.vibrate) navigator.vibrate(50); // Feedback trigger for mobiles
+                
+                // Tap to shrink back logic
+                imgEl.onclick = function(e) {
+                    e.stopPropagation();
+                    container.classList.remove('expanded-view');
+                    imgEl.onclick = null; 
+                };
+            }
+        };
+
         function loadFeed(divId, uid) {
             let q = uid ? query(collection(db, "posts"), where("uid", "==", uid), orderBy("time", "desc")) 
                         : query(collection(db, "posts"), orderBy("time", "desc"));
@@ -1439,7 +1497,7 @@
                     
                     const postRedTick = p.hasRedTick ? redTickSVG : '';
 
-                    // 4:3 Carousel Generator System Injection
+                    // 4:3 Carousel Generator System Injection (With New Long-Press Event Bindings)
                     let imagesHtml = "";
                     if (p.images && p.images.length > 0) {
                         const count = p.images.length;
@@ -1455,7 +1513,8 @@
                         
                         imagesHtml += `<div id="slider-${p.id}" class="post-media-slider" data-index="0" data-total="${count}">`;
                         p.images.forEach(imgBase64 => {
-                            imagesHtml += `<div class="post-media-slide"><img src="${imgBase64}" onerror="this.parentNode.style.display='none'"></div>`;
+                            // Updated this line specifically to support the new long-press expand logic globally
+                            imagesHtml += `<div class="post-media-slide"><img src="${imgBase64}" oncontextmenu="return false;" onmousedown="startExpandTimer(this)" onmouseup="cancelExpandTimer()" onmouseleave="cancelExpandTimer()" ontouchstart="startExpandTimer(this)" ontouchend="cancelExpandTimer()" ontouchmove="cancelExpandTimer()" style="-webkit-touch-callout: none; user-select: none;" onerror="this.parentNode.style.display='none'"></div>`;
                         });
                         imagesHtml += `</div></div>`;
                     }
